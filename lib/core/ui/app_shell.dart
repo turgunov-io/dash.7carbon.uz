@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/application/auth_controller.dart';
 import '../routing/app_route.dart';
-import '../theme/app_colors.dart';
 import '../theme/theme_mode_provider.dart';
 
 class AppShell extends ConsumerWidget {
@@ -20,11 +19,42 @@ class AppShell extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
 
+    // Mobile/Tablet Layout (< 960px)
     if (width < 960) {
       return Scaffold(
         appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leadingWidth: 200,
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Row(
+              children: [
+                _ThemeToggleButton(
+                  isDark: isDark,
+                  onTap: () => _toggleTheme(ref, isDark),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    'Carbon Admin',
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           title: Text(AppRoutes.titleByLocation(location)),
           actions: [
+            Builder(
+              builder: (context) => IconButton(
+                tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+                onPressed: Scaffold.of(context).openDrawer,
+                icon: const Icon(Icons.menu),
+              ),
+            ),
             IconButton(
               tooltip: 'Выйти',
               onPressed: () => _logout(context, ref),
@@ -33,11 +63,6 @@ class AppShell extends ConsumerWidget {
             const SizedBox(width: 8),
           ],
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-        floatingActionButton: _ThemeToggleButton(
-          isDark: isDark,
-          onTap: () => _toggleTheme(ref, isDark),
-        ),
         drawer: Drawer(
           child: SafeArea(
             child: Column(
@@ -45,7 +70,7 @@ class AppShell extends ConsumerWidget {
                 const ListTile(
                   title: Text(
                     'Carbon Admin',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 const Divider(height: 1),
@@ -79,42 +104,75 @@ class AppShell extends ConsumerWidget {
       );
     }
 
+    // Desktop Layout (>= 960px)
     final railExtended = width >= 1360;
     return Scaffold(
-      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-      floatingActionButton: _ThemeToggleButton(
-        isDark: isDark,
-        onTap: () => _toggleTheme(ref, isDark),
-      ),
       body: Row(
         children: [
           SafeArea(
             child: NavigationRail(
               selectedIndex: selectedIndex,
               extended: railExtended,
+              // Group alignment pulls destinations to the top
+              groupAlignment: -1.0,
               onDestinationSelected: (index) {
                 _onNavTap(context, AppRoutes.navItems[index]);
               },
-              leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  railExtended ? 'Carbon Admin' : 'CA',
-                  style: Theme.of(context).textTheme.titleMedium,
+              leading: SizedBox(
+                width: railExtended ? 200 : 72,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 12,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: railExtended
+                        ? MainAxisAlignment.start
+                        : MainAxisAlignment.center,
+                    children: [
+                      _ThemeToggleButton(
+                        isDark: isDark,
+                        onTap: () => _toggleTheme(ref, isDark),
+                      ),
+                      if (railExtended) ...[
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            'Carbon Admin',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-              trailing: Padding(
-                padding: const EdgeInsets.only(bottom: 18),
-                child: railExtended
-                    ? TextButton.icon(
-                        onPressed: () => _logout(context, ref),
-                        icon: const Icon(Icons.logout_outlined),
-                        label: const Text('Выйти'),
-                      )
-                    : IconButton(
-                        tooltip: 'Выйти',
-                        onPressed: () => _logout(context, ref),
-                        icon: const Icon(Icons.logout_outlined),
-                      ),
+              trailing: Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: railExtended
+                        ? SizedBox(
+                            width: 160,
+                            child: TextButton.icon(
+                              onPressed: () => _logout(context, ref),
+                              icon: const Icon(Icons.logout_outlined),
+                              label: const Text('Выйти'),
+                              style: TextButton.styleFrom(
+                                alignment: Alignment.centerLeft,
+                              ),
+                            ),
+                          )
+                        : IconButton(
+                            tooltip: 'Выйти',
+                            onPressed: () => _logout(context, ref),
+                            icon: const Icon(Icons.logout_outlined),
+                          ),
+                  ),
+                ),
               ),
               destinations: AppRoutes.navItems
                   .map(
@@ -125,7 +183,7 @@ class AppShell extends ConsumerWidget {
                             ? null
                             : Theme.of(
                                 context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.4),
+                              ).colorScheme.onSurface.withValues(alpha: 0.38),
                       ),
                       label: Text(item.title),
                     ),
@@ -140,19 +198,20 @@ class AppShell extends ConsumerWidget {
     );
   }
 
-  int _selectedIndex(String currentLocation) {
+  int? _selectedIndex(String currentLocation) {
     for (var i = 0; i < AppRoutes.navItems.length; i++) {
       if (currentLocation.startsWith(AppRoutes.navItems[i].path)) {
         return i;
       }
     }
-    return 0;
+    return null; // Return null if no route matches to avoid false highlighting
   }
 
   void _onNavTap(BuildContext context, AppNavItem item) {
     if (!item.enabled) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          behavior: SnackBarBehavior.floating,
           content: Text(item.disabledHint ?? 'Раздел временно недоступен'),
         ),
       );
@@ -181,13 +240,13 @@ class _ThemeToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.extended(
-      heroTag: 'theme_toggle_fab',
+    return IconButton.filledTonal(
+      tooltip: isDark ? 'Светлая тема' : 'Темная тема',
       onPressed: onTap,
-      icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-      label: Text(isDark ? 'Светлая тема' : 'Темная тема'),
-      backgroundColor: isDark ? AppColors.surfaceDarker : AppColors.white,
-      foregroundColor: isDark ? AppColors.white : AppColors.black,
+      icon: Icon(
+        isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+        size: 20,
+      ),
     );
   }
 }
