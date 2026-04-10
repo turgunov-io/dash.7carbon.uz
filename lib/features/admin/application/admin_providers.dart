@@ -103,6 +103,12 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
   Future<void> create(Map<String, dynamic> payload) async {
     final preparedPayload = _preparePayload(payload, isCreate: true);
     await _wrapSubmit(() async {
+      final existingSingleton = _existingSingletonItem();
+      if (existingSingleton != null) {
+        await _submitUpdate(existingSingleton.id, preparedPayload);
+        await load();
+        return;
+      }
       await _submitCreate(preparedPayload);
       await load();
     });
@@ -136,9 +142,24 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
     return _repository.fetchDetails(_entity, id);
   }
 
+  AdminEntityItem? _existingSingletonItem() {
+    if (_entity.key != 'about_page') {
+      return null;
+    }
+    for (final item in state.items) {
+      if (item.id != null) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   Future<void> _submitCreate(Map<String, dynamic> payload) async {
     if (_entity.key != 'tuning') {
-      await _repository.create(_entity, payload);
+      await _submitWithNotEditableFallback(
+        payload: payload,
+        submit: (nextPayload) => _repository.create(_entity, nextPayload),
+      );
       return;
     }
     await _submitTuningWithFallback(
@@ -149,7 +170,10 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
 
   Future<void> _submitUpdate(dynamic id, Map<String, dynamic> payload) async {
     if (_entity.key != 'tuning') {
-      await _repository.update(_entity, id, payload);
+      await _submitWithNotEditableFallback(
+        payload: payload,
+        submit: (nextPayload) => _repository.update(_entity, id, nextPayload),
+      );
       return;
     }
     await _submitTuningWithFallback(
@@ -213,6 +237,21 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
       type: ApiErrorType.unknown,
       message: 'Не удалось отправить данные для тюнинга.',
     );
+  }
+
+  Future<void> _submitWithNotEditableFallback({
+    required Map<String, dynamic> payload,
+    required Future<void> Function(Map<String, dynamic> payload) submit,
+  }) async {
+    try {
+      await submit(payload);
+    } on ApiError catch (error) {
+      final sanitized = _stripNotEditableFields(payload, error);
+      if (sanitized == null) {
+        rethrow;
+      }
+      await submit(sanitized);
+    }
   }
 
   Future<void> _wrapSubmit(Future<void> Function() action) async {
@@ -531,10 +570,11 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
     ApiError error,
   ) {
     final details = error.details;
-    if (details is! Map<String, dynamic>) {
+    if (details is! Map) {
       return null;
     }
-    final errors = details['errors'];
+    final normalizedDetails = Map<String, dynamic>.from(details);
+    final errors = normalizedDetails['errors'];
     if (errors is! Map) {
       return null;
     }

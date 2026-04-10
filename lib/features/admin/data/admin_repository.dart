@@ -37,6 +37,19 @@ class AdminRepository {
     dynamic id,
     Map<String, dynamic> payload,
   ) async {
+    if (entity.key == 'about_page') {
+      try {
+        await _client.patch('${entity.endpoint}/$id', data: payload);
+        return;
+      } on ApiError catch (error) {
+        if (error.statusCode == 404 || error.statusCode == 405) {
+          await _client.put('${entity.endpoint}/$id', data: payload);
+          return;
+        }
+        rethrow;
+      }
+    }
+
     try {
       await _client.put('${entity.endpoint}/$id', data: payload);
     } on ApiError catch (error) {
