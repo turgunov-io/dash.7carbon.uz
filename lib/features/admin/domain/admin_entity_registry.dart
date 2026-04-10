@@ -126,12 +126,7 @@ const adminEntities = <AdminEntityDefinition>[
         type: AdminFieldType.number,
       ),
     ],
-    listFieldKeys: [
-      'id',
-      'metric_value',
-      'metric_label',
-      'position',
-    ],
+    listFieldKeys: ['id', 'metric_value', 'metric_label', 'position'],
   ),
   AdminEntityDefinition(
     key: 'about_sections',
@@ -444,7 +439,11 @@ const adminEntities = <AdminEntityDefinition>[
 const embeddedAdminEntityKeys = <String>{'about_metrics', 'about_sections'};
 
 final visibleAdminEntities = adminEntities
-    .where((entity) => !embeddedAdminEntityKeys.contains(entity.key))
+    .where(
+      (entity) =>
+          !embeddedAdminEntityKeys.contains(entity.key) &&
+          entity.key != 'contact',
+    )
     .toList(growable: false);
 
 final adminEntityMap = {for (final entity in adminEntities) entity.key: entity};

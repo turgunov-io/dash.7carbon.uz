@@ -60,6 +60,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '${AppRoutes.entitiesPrefix}/:entityKey',
             redirect: (context, state) {
               final entityKey = state.pathParameters['entityKey'] ?? '';
+              if (entityKey == 'contact') {
+                return AppRoutes.dashboard;
+              }
               if (embeddedAdminEntityKeys.contains(entityKey)) {
                 return AppRoutes.entity('about_page');
               }
