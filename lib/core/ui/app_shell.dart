@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/application/auth_controller.dart';
 import '../routing/app_route.dart';
+import '../theme/app_colors.dart';
 import '../theme/theme_mode_provider.dart';
 
 class AppShell extends ConsumerWidget {
@@ -19,40 +20,46 @@ class AppShell extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
 
-    // Mobile/Tablet Layout (< 960px)
     if (width < 960) {
       return Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          leadingWidth: 200,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: Row(
-              children: [
-                _ThemeToggleButton(
-                  isDark: isDark,
-                  onTap: () => _toggleTheme(ref, isDark),
-                ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    'Carbon Admin',
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+          titleSpacing: 12,
+          title: Row(
+            children: [
+              _ThemeToggleButton(
+                isDark: isDark,
+                onTap: () => _toggleTheme(ref),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Carbon Admin',
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
+                    Text(
+                      AppRoutes.titleByLocation(location),
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          title: Text(AppRoutes.titleByLocation(location)),
           actions: [
             Builder(
               builder: (context) => IconButton(
                 tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
                 onPressed: Scaffold.of(context).openDrawer,
-                icon: const Icon(Icons.menu),
+                icon: const Icon(Icons.menu_rounded),
               ),
             ),
             IconButton(
@@ -60,138 +67,40 @@ class AppShell extends ConsumerWidget {
               onPressed: () => _logout(context, ref),
               icon: const Icon(Icons.logout_outlined),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
           ],
         ),
         drawer: Drawer(
-          child: SafeArea(
-            child: Column(
-              children: [
-                const ListTile(
-                  title: Text(
-                    'Carbon Admin',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: AppRoutes.navItems.length,
-                    itemBuilder: (context, index) {
-                      final item = AppRoutes.navItems[index];
-                      final itemEnabled = item.enabled;
-                      return ListTile(
-                        selected: selectedIndex == index,
-                        enabled: itemEnabled,
-                        leading: Icon(item.icon),
-                        title: Text(item.title),
-                        subtitle: itemEnabled || item.disabledHint == null
-                            ? null
-                            : Text(item.disabledHint!),
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          _onNavTap(context, item);
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+          child: _Sidebar(
+            selectedIndex: selectedIndex,
+            isDark: isDark,
+            onNavTap: (item) {
+              Navigator.of(context).pop();
+              _onNavTap(context, item);
+            },
+            onLogout: () => _logout(context, ref),
+            onToggleTheme: () => _toggleTheme(ref),
           ),
         ),
         body: child,
       );
     }
 
-    // Desktop Layout (>= 960px)
-    final railExtended = width >= 1360;
+    final sidebarWidth = width >= 1440 ? 288.0 : 264.0;
+
     return Scaffold(
       body: Row(
         children: [
-          SafeArea(
-            child: NavigationRail(
+          SizedBox(
+            width: sidebarWidth,
+            child: _Sidebar(
               selectedIndex: selectedIndex,
-              extended: railExtended,
-              // Group alignment pulls destinations to the top
-              groupAlignment: -1.0,
-              onDestinationSelected: (index) {
-                _onNavTap(context, AppRoutes.navItems[index]);
-              },
-              leading: SizedBox(
-                width: railExtended ? 200 : 72,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 12,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: railExtended
-                        ? MainAxisAlignment.start
-                        : MainAxisAlignment.center,
-                    children: [
-                      _ThemeToggleButton(
-                        isDark: isDark,
-                        onTap: () => _toggleTheme(ref, isDark),
-                      ),
-                      if (railExtended) ...[
-                        const SizedBox(width: 12),
-                        Flexible(
-                          child: Text(
-                            'Carbon Admin',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              trailing: Expanded(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: railExtended
-                        ? SizedBox(
-                            width: 160,
-                            child: TextButton.icon(
-                              onPressed: () => _logout(context, ref),
-                              icon: const Icon(Icons.logout_outlined),
-                              label: const Text('Выйти'),
-                              style: TextButton.styleFrom(
-                                alignment: Alignment.centerLeft,
-                              ),
-                            ),
-                          )
-                        : IconButton(
-                            tooltip: 'Выйти',
-                            onPressed: () => _logout(context, ref),
-                            icon: const Icon(Icons.logout_outlined),
-                          ),
-                  ),
-                ),
-              ),
-              destinations: AppRoutes.navItems
-                  .map(
-                    (item) => NavigationRailDestination(
-                      icon: Icon(
-                        item.icon,
-                        color: item.enabled
-                            ? null
-                            : Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withValues(alpha: 0.38),
-                      ),
-                      label: Text(item.title),
-                    ),
-                  )
-                  .toList(growable: false),
+              isDark: isDark,
+              onNavTap: (item) => _onNavTap(context, item),
+              onLogout: () => _logout(context, ref),
+              onToggleTheme: () => _toggleTheme(ref),
             ),
           ),
-          const VerticalDivider(width: 1),
           Expanded(child: child),
         ],
       ),
@@ -204,7 +113,7 @@ class AppShell extends ConsumerWidget {
         return i;
       }
     }
-    return null; // Return null if no route matches to avoid false highlighting
+    return null;
   }
 
   void _onNavTap(BuildContext context, AppNavItem item) {
@@ -220,15 +129,248 @@ class AppShell extends ConsumerWidget {
     context.go(item.path);
   }
 
-  void _toggleTheme(WidgetRef ref, bool isDark) {
-    ref.read(themeModeProvider.notifier).state = isDark
-        ? ThemeMode.light
-        : ThemeMode.dark;
+  void _toggleTheme(WidgetRef ref) {
+    ref.read(themeModeProvider.notifier).toggleTheme();
   }
 
   void _logout(BuildContext context, WidgetRef ref) {
     ref.read(authControllerProvider.notifier).logout();
     context.go(AppRoutes.login);
+  }
+}
+
+class _Sidebar extends StatelessWidget {
+  const _Sidebar({
+    required this.selectedIndex,
+    required this.isDark,
+    required this.onNavTap,
+    required this.onLogout,
+    required this.onToggleTheme,
+  });
+
+  final int? selectedIndex;
+  final bool isDark;
+  final ValueChanged<AppNavItem> onNavTap;
+  final VoidCallback onLogout;
+  final VoidCallback onToggleTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final backgroundColor = isDark ? AppColors.surfaceDarker : AppColors.white;
+    final borderColor = isDark ? AppColors.borderLight : AppColors.black12;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border(right: BorderSide(color: borderColor)),
+        boxShadow: isDark
+            ? null
+            : const [
+                BoxShadow(
+                  color: AppColors.blackOverlayLight,
+                  blurRadius: 18,
+                  offset: Offset(2, 0),
+                ),
+              ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Carbon Admin',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Панель управления',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _ThemeToggleButton(isDark: isDark, onTap: onToggleTheme),
+                ],
+              ),
+              const SizedBox(height: 18),
+              // Container(
+              //   padding: const EdgeInsets.symmetric(
+              //     horizontal: 12,
+              //     vertical: 10,
+              //   ),
+              //   decoration: BoxDecoration(
+              //     color: colorScheme.surfaceContainerHighest.withValues(
+              //       alpha: isDark ? 0.26 : 0.45,
+              //     ),
+              //     borderRadius: BorderRadius.circular(14),
+              //   ),
+              //   child: Row(
+              //     children: [
+              //       Icon(
+              //         Icons.space_dashboard_outlined,
+              //         size: 18,
+              //         color: colorScheme.primary,
+              //       ),
+
+              //     ],
+              //   ),
+              // ),
+              // const SizedBox(height: 12),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: AppRoutes.navItems.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
+                  itemBuilder: (context, index) {
+                    final item = AppRoutes.navItems[index];
+                    return _SidebarNavButton(
+                      item: item,
+                      selected: selectedIndex == index,
+                      onTap: () => onNavTap(item),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              Divider(color: borderColor, height: 1),
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: onLogout,
+                style: FilledButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(Icons.logout_outlined),
+                label: const Text('Выйти'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarNavButton extends StatelessWidget {
+  const _SidebarNavButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppNavItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isEnabled = item.enabled;
+    final foregroundColor = !isEnabled
+        ? colorScheme.onSurface.withValues(alpha: 0.45)
+        : selected
+        ? colorScheme.primary
+        : colorScheme.onSurface;
+    final subtitleColor = !isEnabled
+        ? colorScheme.onSurface.withValues(alpha: 0.38)
+        : colorScheme.onSurfaceVariant;
+
+    return Material(
+      color: selected
+          ? colorScheme.primaryContainer.withValues(alpha: 0.52)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? colorScheme.primary.withValues(alpha: 0.18)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? colorScheme.primary.withValues(alpha: 0.12)
+                      : colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.32,
+                        ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(item.icon, size: 20, color: foregroundColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: foregroundColor,
+                      ),
+                    ),
+                    if (!isEnabled && item.disabledHint != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        item.disabledHint!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: subtitleColor,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: selected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

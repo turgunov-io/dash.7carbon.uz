@@ -47,7 +47,6 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   String _portfolioSearchQuery = '';
   String _workPostSearchQuery = '';
   String _consultationsSearchQuery = '';
-  String _privacySectionsSearchQuery = '';
   String _serviceOfferingsSearchQuery = '';
 
   @override
@@ -134,7 +133,13 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       );
     }
 
-    if (state.items.isEmpty) {
+    if (state.items.isEmpty &&
+        entity.key != 'banners' &&
+        entity.key != 'partners' &&
+        entity.key != 'privacy_sections' &&
+        entity.key != 'work_post' &&
+        entity.key != 'service_offerings' &&
+        entity.key != 'tuning') {
       return const EmptyState(message: 'Записи отсутствуют');
     }
 
@@ -311,6 +316,13 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            FilledButton.icon(
+              onPressed: state.submitting
+                  ? null
+                  : () => _openCreateDialog(entity, controller),
+              icon: const Icon(Icons.add),
+              label: const Text('Добавить баннер'),
+            ),
             SizedBox(
               width: 360,
               child: TextField(
@@ -339,7 +351,6 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               ),
           ],
         ),
-        const SizedBox(height: 12),
         if (filtered.isEmpty)
           const Expanded(
             child: EmptyState(message: 'По выбранным фильтрам записей нет'),
@@ -496,7 +507,9 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
             return true;
           }
           final id = item.id.toString().toLowerCase();
-          final phone = _displayValue(item.values['phone_number']).toLowerCase();
+          final phone = _displayValue(
+            item.values['phone_number'],
+          ).toLowerCase();
           final email = _displayValue(item.values['email']).toLowerCase();
           final address = _displayValue(item.values['address']).toLowerCase();
           final schedule = _displayValue(
@@ -700,7 +713,9 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               Expanded(child: infoBlock),
                               const SizedBox(width: 12),
                               ConstrainedBox(
-                                constraints: const BoxConstraints(minWidth: 120),
+                                constraints: const BoxConstraints(
+                                  minWidth: 120,
+                                ),
                                 child: Align(
                                   alignment: Alignment.topRight,
                                   child: actionButtons,
@@ -1191,6 +1206,13 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            FilledButton.icon(
+              onPressed: state.submitting
+                  ? null
+                  : () => _openCreateDialog(entity, controller),
+              icon: const Icon(Icons.add),
+              label: const Text('Добавить партнера'),
+            ),
             SizedBox(
               width: 340,
               child: TextField(
@@ -1621,6 +1643,13 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            FilledButton.icon(
+              onPressed: state.submitting
+                  ? null
+                  : () => _openCreateDialog(entity, controller),
+              icon: const Icon(Icons.add),
+              label: const Text('Добавить пост'),
+            ),
             SizedBox(
               width: 360,
               child: TextField(
@@ -2091,61 +2120,63 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     required AdminEntityState state,
     required AdminEntityController controller,
   }) {
-    final query = _privacySectionsSearchQuery.trim().toLowerCase();
-    final filtered = state.items
-        .where((item) {
-          if (query.isEmpty) {
-            return true;
-          }
-          final id = item.id.toString().toLowerCase();
-          final title = _displayValue(item.values['title']).toLowerCase();
-          final description = _displayValue(
-            item.values['description'],
-          ).toLowerCase();
-          final position = _displayValue(item.values['position']).toLowerCase();
-          return id.contains(query) ||
-              title.contains(query) ||
-              description.contains(query) ||
-              position.contains(query);
-        })
-        .toList(growable: false);
+    final filtered = state.items;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 380,
-              child: TextField(
-                controller: _privacySectionsSearchController,
-                onTapOutside: (_) => _dismissActiveFocus(),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Поиск по заголовку, описанию или позиции',
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    _privacySectionsSearchQuery = value;
-                  });
-                },
-              ),
-            ),
-            if (state.errorMessage != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Text(
-                  state.errorMessage!,
-                  style: const TextStyle(color: AppColors.errorAccent),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: state.submitting
+                ? null
+                : () => _openCreateDialog(entity, controller),
+            icon: const Icon(Icons.add),
+            label: const Text('Добавить раздел'),
+          ),
         ),
+        const SizedBox(height: 12),
+        Visibility(
+          visible: false,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 380,
+                child: TextField(
+                  controller: _privacySectionsSearchController,
+                  onTapOutside: (_) => _dismissActiveFocus(),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Поиск по заголовку, описанию или позиции',
+                  ),
+                ),
+              ),
+              if (state.errorMessage != null)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Text(
+                    state.errorMessage!,
+                    style: const TextStyle(color: AppColors.errorAccent),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (state.errorMessage != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Text(
+              state.errorMessage!,
+              style: const TextStyle(color: AppColors.errorAccent),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         const SizedBox(height: 12),
         if (filtered.isEmpty)
           const Expanded(
@@ -2261,7 +2292,9 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                               Expanded(child: infoBlock),
                               const SizedBox(width: 12),
                               ConstrainedBox(
-                                constraints: const BoxConstraints(minWidth: 120),
+                                constraints: const BoxConstraints(
+                                  minWidth: 120,
+                                ),
                                 child: Align(
                                   alignment: Alignment.topRight,
                                   child: actionButtons,
@@ -2327,6 +2360,13 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            FilledButton.icon(
+              onPressed: state.submitting
+                  ? null
+                  : () => _openCreateDialog(entity, controller),
+              icon: const Icon(Icons.add),
+              label: const Text('Добавить тюнинг'),
+            ),
             SizedBox(
               width: 320,
               child: TextField(
@@ -2636,6 +2676,13 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            FilledButton.icon(
+              onPressed: state.submitting
+                  ? null
+                  : () => _openCreateDialog(entity, controller),
+              icon: const Icon(Icons.add),
+              label: const Text('Добавить услугу'),
+            ),
             SizedBox(
               width: 420,
               child: TextField(
