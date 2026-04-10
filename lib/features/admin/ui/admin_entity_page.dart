@@ -34,16 +34,20 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   final _tuningSearchController = TextEditingController();
   final _partnersSearchController = TextEditingController();
   final _bannersSearchController = TextEditingController();
+  final _contactSearchController = TextEditingController();
   final _portfolioSearchController = TextEditingController();
   final _workPostSearchController = TextEditingController();
   final _consultationsSearchController = TextEditingController();
+  final _privacySectionsSearchController = TextEditingController();
   final _serviceOfferingsSearchController = TextEditingController();
   String _tuningSearchQuery = '';
   String _partnersSearchQuery = '';
   String _bannersSearchQuery = '';
+  String _contactSearchQuery = '';
   String _portfolioSearchQuery = '';
   String _workPostSearchQuery = '';
   String _consultationsSearchQuery = '';
+  String _privacySectionsSearchQuery = '';
   String _serviceOfferingsSearchQuery = '';
 
   @override
@@ -51,9 +55,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     _tuningSearchController.dispose();
     _partnersSearchController.dispose();
     _bannersSearchController.dispose();
+    _contactSearchController.dispose();
     _portfolioSearchController.dispose();
     _workPostSearchController.dispose();
     _consultationsSearchController.dispose();
+    _privacySectionsSearchController.dispose();
     _serviceOfferingsSearchController.dispose();
     super.dispose();
   }
@@ -120,6 +126,14 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       );
     }
 
+    if (entity.key == 'contact') {
+      return _buildContactList(
+        entity: entity,
+        state: state,
+        controller: controller,
+      );
+    }
+
     if (state.items.isEmpty) {
       return const EmptyState(message: 'Записи отсутствуют');
     }
@@ -165,6 +179,14 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
 
     if (entity.key == 'consultations') {
       return _buildConsultationsList(
+        entity: entity,
+        state: state,
+        controller: controller,
+      );
+    }
+
+    if (entity.key == 'privacy_sections') {
+      return _buildPrivacySectionsList(
         entity: entity,
         state: state,
         controller: controller,
@@ -293,6 +315,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               width: 360,
               child: TextField(
                 controller: _bannersSearchController,
+                onTapOutside: (_) => _dismissActiveFocus(),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
                   hintText: 'Поиск по заголовку и URL',
@@ -453,11 +476,255 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     );
   }
 
+  void _dismissActiveFocus() {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus != null) {
+      focus.unfocus();
+    }
+  }
+
+  Widget _buildContactList({
+    required AdminEntityDefinition entity,
+    required AdminEntityState state,
+    required AdminEntityController controller,
+  }) {
+    final singletonItem = _existingSingletonItem(entity, state);
+    final query = _contactSearchQuery.trim().toLowerCase();
+    final filtered = state.items
+        .where((item) {
+          if (query.isEmpty) {
+            return true;
+          }
+          final id = item.id.toString().toLowerCase();
+          final phone = _displayValue(item.values['phone_number']).toLowerCase();
+          final email = _displayValue(item.values['email']).toLowerCase();
+          final address = _displayValue(item.values['address']).toLowerCase();
+          final schedule = _displayValue(
+            item.values['work_schedule'],
+          ).toLowerCase();
+          final description = _displayValue(
+            item.values['description'],
+          ).toLowerCase();
+          return id.contains(query) ||
+              phone.contains(query) ||
+              email.contains(query) ||
+              address.contains(query) ||
+              schedule.contains(query) ||
+              description.contains(query);
+        })
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (singletonItem == null)
+              FilledButton.icon(
+                onPressed: state.submitting
+                    ? null
+                    : () => _openCreateDialog(entity, controller),
+                icon: const Icon(Icons.add),
+                label: const Text('Создать'),
+              ),
+            SizedBox(
+              width: 380,
+              child: TextField(
+                controller: _contactSearchController,
+                onTapOutside: (_) => _dismissActiveFocus(),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Поиск по телефону, email, адресу или описанию',
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _contactSearchQuery = value;
+                  });
+                },
+              ),
+            ),
+            if (state.errorMessage != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  state.errorMessage!,
+                  style: const TextStyle(color: AppColors.errorAccent),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty)
+          Expanded(
+            child: singletonItem == null
+                ? const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: Text('Записи не найдены')),
+                    ),
+                  )
+                : const EmptyState(message: 'Записи не найдены'),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final item = filtered[index];
+                final phone = _displayValue(item.values['phone_number']);
+                final email = _displayValue(item.values['email']);
+                final address = _displayValue(item.values['address']);
+                final schedule = _displayValue(item.values['work_schedule']);
+                final description = _displayValue(item.values['description']);
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 980;
+
+                        final actionButtons = Wrap(
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: [
+                            IconButton(
+                              tooltip: 'Детали',
+                              onPressed: () => _openDetailsDialog(
+                                entity,
+                                controller,
+                                item.id,
+                              ),
+                              icon: const Icon(Icons.visibility_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Редактировать',
+                              onPressed: () =>
+                                  _openEditDialog(entity, controller, item),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Удалить',
+                              onPressed: () =>
+                                  _confirmDelete(entity, controller, item.id),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        );
+
+                        final infoBlock = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              phone == dashValue ? 'Контакты' : phone,
+                              maxLines: compact ? 2 : 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                Chip(
+                                  label: Text('ID: ${item.id}'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                if (email != dashValue)
+                                  Chip(
+                                    label: Text(email),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                              ],
+                            ),
+                            if (address != dashValue) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                'Адрес: $address',
+                                maxLines: compact ? 3 : 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                            if (schedule != dashValue) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'График: $schedule',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                            if (description != dashValue) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                description,
+                                maxLines: compact ? 5 : 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        );
+
+                        if (compact) {
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () =>
+                                _openDetailsDialog(entity, controller, item.id),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                infoBlock,
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: actionButtons,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              _openDetailsDialog(entity, controller, item.id),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: infoBlock),
+                              const SizedBox(width: 12),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(minWidth: 120),
+                                child: Align(
+                                  alignment: Alignment.topRight,
+                                  child: actionButtons,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
   AdminEntityItem? _existingSingletonItem(
     AdminEntityDefinition entity,
     AdminEntityState state,
   ) {
-    if (entity.key != 'about_page') {
+    if (!_isSingletonEntity(entity)) {
       return null;
     }
     for (final item in state.items) {
@@ -466,6 +733,10 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       }
     }
     return null;
+  }
+
+  bool _isSingletonEntity(AdminEntityDefinition entity) {
+    return entity.key == 'about_page' || entity.key == 'contact';
   }
 
   Widget _buildAboutPageList({
@@ -924,6 +1195,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               width: 340,
               child: TextField(
                 controller: _partnersSearchController,
+                onTapOutside: (_) => _dismissActiveFocus(),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
                   hintText: 'Поиск по ID или URL логотипа',
@@ -1103,6 +1375,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               width: 360,
               child: TextField(
                 controller: _portfolioSearchController,
+                onTapOutside: (_) => _dismissActiveFocus(),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
                   hintText: 'Поиск по заголовку, бренду или изображению',
@@ -1192,7 +1465,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                             ),
                           if (createdAt != dashValue)
                             Chip(
-                              label: Text('Created: $createdAt'),
+                              label: Text('Создано: $createdAt'),
                               visualDensity: VisualDensity.compact,
                             ),
                         ];
@@ -1352,6 +1625,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               width: 360,
               child: TextField(
                 controller: searchController,
+                onTapOutside: (_) => _dismissActiveFocus(),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
                   hintText: 'Поиск по заголовку, описанию, фото или видео URL',
@@ -1470,7 +1744,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                           ),
                           if (createdAt != dashValue)
                             Chip(
-                              label: Text('Created: $createdAt'),
+                              label: Text('Создано: $createdAt'),
                               visualDensity: VisualDensity.compact,
                             ),
                           if (videoUrl != dashValue)
@@ -1623,6 +1897,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               width: 380,
               child: TextField(
                 controller: _consultationsSearchController,
+                onTapOutside: (_) => _dismissActiveFocus(),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
                   hintText: 'Поиск по имени, телефону, услуге или статусу',
@@ -1666,7 +1941,6 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                   item.values['preferred_call_time'],
                 );
                 final comments = _displayValue(item.values['comments']);
-                final status = _displayValue(item.values['status']);
                 final createdAt = _displayValue(item.values['created_at']);
                 final fullName = ('$firstName $lastName').trim();
 
@@ -1725,13 +1999,9 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                                   label: Text('ID: ${item.id}'),
                                   visualDensity: VisualDensity.compact,
                                 ),
-                                Chip(
-                                  label: Text('Status: $status'),
-                                  visualDensity: VisualDensity.compact,
-                                ),
                                 if (createdAt != dashValue)
                                   Chip(
-                                    label: Text('Created: $createdAt'),
+                                    label: Text('Создано: $createdAt'),
                                     visualDensity: VisualDensity.compact,
                                   ),
                               ],
@@ -1816,6 +2086,201 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     );
   }
 
+  Widget _buildPrivacySectionsList({
+    required AdminEntityDefinition entity,
+    required AdminEntityState state,
+    required AdminEntityController controller,
+  }) {
+    final query = _privacySectionsSearchQuery.trim().toLowerCase();
+    final filtered = state.items
+        .where((item) {
+          if (query.isEmpty) {
+            return true;
+          }
+          final id = item.id.toString().toLowerCase();
+          final title = _displayValue(item.values['title']).toLowerCase();
+          final description = _displayValue(
+            item.values['description'],
+          ).toLowerCase();
+          final position = _displayValue(item.values['position']).toLowerCase();
+          return id.contains(query) ||
+              title.contains(query) ||
+              description.contains(query) ||
+              position.contains(query);
+        })
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 380,
+              child: TextField(
+                controller: _privacySectionsSearchController,
+                onTapOutside: (_) => _dismissActiveFocus(),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Поиск по заголовку, описанию или позиции',
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _privacySectionsSearchQuery = value;
+                  });
+                },
+              ),
+            ),
+            if (state.errorMessage != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  state.errorMessage!,
+                  style: const TextStyle(color: AppColors.errorAccent),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (filtered.isEmpty)
+          const Expanded(
+            child: EmptyState(message: 'По выбранным фильтрам записей нет'),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final item = filtered[index];
+                final title = _displayValue(item.values['title']);
+                final description = _displayValue(item.values['description']);
+                final position = _displayValue(item.values['position']);
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 980;
+
+                        final actionButtons = Wrap(
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: [
+                            IconButton(
+                              tooltip: 'Детали',
+                              onPressed: () => _openDetailsDialog(
+                                entity,
+                                controller,
+                                item.id,
+                              ),
+                              icon: const Icon(Icons.visibility_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Редактировать',
+                              onPressed: () =>
+                                  _openEditDialog(entity, controller, item),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
+                            IconButton(
+                              tooltip: 'Удалить',
+                              onPressed: () =>
+                                  _confirmDelete(entity, controller, item.id),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        );
+
+                        final infoBlock = Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: compact ? 2 : 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                Chip(
+                                  label: Text('ID: ${item.id}'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                if (position != dashValue)
+                                  Chip(
+                                    label: Text('Позиция: $position'),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              description,
+                              maxLines: compact ? 6 : 4,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        );
+
+                        if (compact) {
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () =>
+                                _openDetailsDialog(entity, controller, item.id),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                infoBlock,
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: actionButtons,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              _openDetailsDialog(entity, controller, item.id),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: infoBlock),
+                              const SizedBox(width: 12),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(minWidth: 120),
+                                child: Align(
+                                  alignment: Alignment.topRight,
+                                  child: actionButtons,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildTuningCards({
     required AdminEntityDefinition entity,
     required AdminEntityState state,
@@ -1866,6 +2331,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               width: 320,
               child: TextField(
                 controller: _tuningSearchController,
+                onTapOutside: (_) => _dismissActiveFocus(),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
                   hintText:
@@ -2174,6 +2640,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               width: 420,
               child: TextField(
                 controller: _serviceOfferingsSearchController,
+                onTapOutside: (_) => _dismissActiveFocus(),
                 decoration: const InputDecoration(
                   prefixIcon: Icon(Icons.search),
                   hintText: 'Поиск по услуге, заголовку, описанию или фото',
@@ -2280,7 +2747,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                             ),
                           if (createdAt != dashValue)
                             Chip(
-                              label: Text('Created: $createdAt'),
+                              label: Text('Создано: $createdAt'),
                               visualDensity: VisualDensity.compact,
                             ),
                           Chip(
@@ -2414,6 +2881,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     AdminEntityController controller, {
     Map<String, dynamic>? extraPayload,
   }) async {
+    _dismissActiveFocus();
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) {
+      return;
+    }
     final payload = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) =>
@@ -2446,6 +2918,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     AdminEntityItem item, {
     Map<String, dynamic>? extraPayload,
   }) async {
+    _dismissActiveFocus();
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) {
+      return;
+    }
     final payload = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => _EntityFormDialog(
@@ -2503,6 +2980,16 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       return normalized;
     }
 
+    if (entity.key == 'contact') {
+      for (final key in const ['address', 'work_schedule']) {
+        final value = normalized[key];
+        if (value is Map || value is List) {
+          normalized[key] = const JsonEncoder.withIndent('  ').convert(value);
+        }
+      }
+      return normalized;
+    }
+
     if (entity.key != 'work_post') {
       return normalized;
     }
@@ -2525,6 +3012,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     AdminEntityController controller,
     dynamic id,
   ) async {
+    _dismissActiveFocus();
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) {
+      return;
+    }
     final approved = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -2562,6 +3054,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     AdminEntityController controller,
     dynamic id,
   ) async {
+    _dismissActiveFocus();
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) {
+      return;
+    }
     await showDialog<void>(
       context: context,
       builder: (context) {
@@ -2907,6 +3404,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       return;
     }
 
+    _dismissActiveFocus();
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) {
+      return;
+    }
     await showDialog<void>(
       context: context,
       builder: (context) {
@@ -2990,6 +3492,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   }
 
   Future<void> _openSingleImageDialog(String imageUrl) async {
+    _dismissActiveFocus();
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) {
+      return;
+    }
     await showDialog<void>(
       context: context,
       builder: (context) {
@@ -3177,6 +3684,13 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     return widget.entity.formFields;
   }
 
+  void _dismissActiveFocus() {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus != null) {
+      focus.unfocus();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -3246,7 +3760,10 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            _dismissActiveFocus();
+            Navigator.of(context).pop();
+          },
           child: const Text('Отмена'),
         ),
         FilledButton(onPressed: _submit, child: const Text('Сохранить')),
@@ -3255,6 +3772,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
   }
 
   void _submit() {
+    _dismissActiveFocus();
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -3300,7 +3818,12 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
       }
     }
 
-    Navigator.of(context).pop(result);
+    Future<void>.delayed(Duration.zero, () {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(result);
+    });
   }
 
   String? _validateField(AdminFieldDefinition field, String? value) {
@@ -3334,7 +3857,8 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
     final controller = _controllers[field.key]!;
     final isLongText =
         field.type == AdminFieldType.multiline ||
-        field.type == AdminFieldType.json;
+        field.type == AdminFieldType.json ||
+        _isContactJsonField(field);
     final uploadable = _isSingleUploadTarget(field);
     final mediaPreview = uploadable
         ? _buildSingleUploadPreview(field, controller.text)
@@ -3349,6 +3873,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
             controller: controller,
             minLines: isLongText ? 2 : 1,
             maxLines: isLongText ? 6 : 1,
+            onTapOutside: (_) => _dismissActiveFocus(),
             decoration: InputDecoration(
               labelText: field.required ? '${field.label} *' : field.label,
               helperText: _fieldHelperText(field),
@@ -3378,6 +3903,10 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
   String? _fieldHelperText(AdminFieldDefinition field) {
     if (field.type == AdminFieldType.json) {
       return 'Введите данные';
+    }
+
+    if (_isContactJsonField(field)) {
+      return 'Можно оставить текст или ввести JSON';
     }
 
     if (widget.entity.key == 'tuning') {
@@ -3433,6 +3962,13 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
   bool _isPreviewableImageField(AdminFieldDefinition field) {
     final key = '${widget.entity.key}.${field.key}';
     return _singleImagePreviewTargets.contains(key);
+  }
+
+  bool _isContactJsonField(AdminFieldDefinition field) {
+    if (widget.entity.key != 'contact') {
+      return false;
+    }
+    return field.key == 'address' || field.key == 'work_schedule';
   }
 
   String? _resolvePreviewUrl(String raw) {
@@ -3547,7 +4083,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
                 children: List.generate(items.length, (index) {
                   final controller = items[index];
                   return Padding(
-                    key: ValueKey('${field.key}-$index'),
+                    key: ObjectKey(controller),
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       children: [
@@ -3556,6 +4092,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
                             controller: controller,
                             minLines: jsonArrayField ? 2 : 1,
                             maxLines: jsonArrayField ? 6 : 1,
+                            onTapOutside: (_) => _dismissActiveFocus(),
                             decoration: InputDecoration(
                               labelText: _arrayItemLabel(field, index),
                               hintText: _arrayHintText(field),
@@ -3719,6 +4256,11 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
   }
 
   dynamic _parseValue(AdminFieldDefinition field, String raw) {
+    if (_isContactJsonField(field)) {
+      final parsed = _tryJsonDecode(raw);
+      return parsed ?? raw;
+    }
+
     switch (field.type) {
       case AdminFieldType.number:
         final parsed = num.tryParse(raw);

@@ -56,7 +56,7 @@ const adminEntities = <AdminEntityDefinition>[
     title: 'Контакты',
     endpoint: '/admin/contact',
     icon: Icons.contact_phone_outlined,
-    searchFields: ['phone_number', 'email', 'address'],
+    searchFields: ['phone_number', 'email', 'address', 'description'],
     fields: [
       _idField,
       AdminFieldDefinition(key: 'phone_number', label: 'Телефон'),

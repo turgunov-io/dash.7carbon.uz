@@ -9,17 +9,39 @@ class AdminRepository {
   final ApiClient _client;
 
   Future<List<AdminEntityItem>> fetchList(AdminEntityDefinition entity) async {
-    final payload = await _client.get(entity.endpoint);
-    final rows = _extractRows(entity, payload);
-    return rows
-        .map((row) => AdminEntityItem.fromBackend(row))
-        .toList(growable: false);
+    try {
+      final payload = await _client.get(entity.endpoint);
+      final rows = _extractRows(entity, payload);
+      return rows
+          .map((row) => AdminEntityItem.fromBackend(row))
+          .toList(growable: false);
+    } on ApiError catch (error) {
+      if (entity.key == 'contact' && error.statusCode == 404) {
+        return const <AdminEntityItem>[];
+      }
+      rethrow;
+    }
   }
 
   Future<AdminEntityItem> fetchDetails(
     AdminEntityDefinition entity,
     dynamic id,
   ) async {
+    if (entity.key == 'contact') {
+      try {
+        final payload = await _client.get('${entity.endpoint}/$id');
+        final row = _extractDetailRow(entity, payload);
+        return AdminEntityItem.fromBackend(row);
+      } on ApiError catch (error) {
+        if (error.statusCode != 404 && error.statusCode != 405) {
+          rethrow;
+        }
+        final payload = await _client.get(entity.endpoint);
+        final row = _extractDetailRow(entity, payload);
+        return AdminEntityItem.fromBackend(row);
+      }
+    }
+
     final payload = await _client.get('${entity.endpoint}/$id');
     final row = _extractDetailRow(entity, payload);
     return AdminEntityItem.fromBackend(row);
@@ -29,6 +51,11 @@ class AdminRepository {
     AdminEntityDefinition entity,
     Map<String, dynamic> payload,
   ) async {
+    if (entity.key == 'contact') {
+      await _submitContactCreate(entity, payload);
+      return;
+    }
+
     await _client.post(entity.endpoint, data: payload);
   }
 
@@ -48,6 +75,11 @@ class AdminRepository {
         }
         rethrow;
       }
+    }
+
+    if (entity.key == 'contact') {
+      await _submitContactUpdate(entity, id, payload);
+      return;
     }
 
     try {
@@ -180,5 +212,130 @@ class AdminRepository {
       return Map<String, dynamic>.from(payload);
     }
     return <String, dynamic>{};
+  }
+
+  Future<void> _submitContactCreate(
+    AdminEntityDefinition entity,
+    Map<String, dynamic> payload,
+  ) async {
+    final id = payload['id'] ?? 1;
+    final payloadWithId = Map<String, dynamic>.from(payload)..['id'] = id;
+    final payloadWithoutId = Map<String, dynamic>.from(payloadWithId)
+      ..remove('id');
+    ApiError? lastError;
+
+    final attempts = <Future<void> Function()>[
+      () => _client.post(entity.endpoint, data: payloadWithId),
+      () => _client.put('${entity.endpoint}/$id', data: payloadWithId),
+      () => _client.patch('${entity.endpoint}/$id', data: payloadWithId),
+      () => _client.post(entity.endpoint, data: payloadWithoutId),
+      () => _client.put('${entity.endpoint}/$id', data: payloadWithoutId),
+      () => _client.patch('${entity.endpoint}/$id', data: payloadWithoutId),
+      () => _client.put(
+        entity.endpoint,
+        data: payloadWithoutId,
+        queryParameters: {'id': id},
+      ),
+      () => _client.patch(
+        entity.endpoint,
+        data: payloadWithoutId,
+        queryParameters: {'id': id},
+      ),
+      () => _client.put(entity.endpoint, data: payloadWithId),
+      () => _client.patch(entity.endpoint, data: payloadWithId),
+    ];
+
+    for (final attempt in attempts) {
+      try {
+        await attempt();
+        return;
+      } on ApiError catch (error) {
+        if (!_shouldRetryContactRequest(error)) {
+          rethrow;
+        }
+        lastError = error;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw const ApiError(
+      type: ApiErrorType.unknown,
+      message: 'Не удалось создать запись contact.',
+    );
+  }
+
+  Future<void> _submitContactUpdate(
+    AdminEntityDefinition entity,
+    dynamic id,
+    Map<String, dynamic> payload,
+  ) async {
+    final resolvedId = payload['id'] ?? id ?? 1;
+    final payloadWithId = Map<String, dynamic>.from(payload)
+      ..['id'] = resolvedId;
+    final payloadWithoutId = Map<String, dynamic>.from(payloadWithId)
+      ..remove('id');
+    ApiError? lastError;
+
+    final attempts = <Future<void> Function()>[
+      () => _client.put('${entity.endpoint}/$resolvedId', data: payloadWithId),
+      () => _client.patch('${entity.endpoint}/$resolvedId', data: payloadWithId),
+      () => _client.put('${entity.endpoint}/$resolvedId', data: payloadWithoutId),
+      () => _client.patch(
+        '${entity.endpoint}/$resolvedId',
+        data: payloadWithoutId,
+      ),
+      () => _client.put(
+        entity.endpoint,
+        data: payloadWithoutId,
+        queryParameters: {'id': resolvedId},
+      ),
+      () => _client.patch(
+        entity.endpoint,
+        data: payloadWithoutId,
+        queryParameters: {'id': resolvedId},
+      ),
+      () => _client.put(entity.endpoint, data: payloadWithId),
+      () => _client.patch(entity.endpoint, data: payloadWithId),
+      () => _client.post(entity.endpoint, data: payloadWithoutId),
+    ];
+
+    for (final attempt in attempts) {
+      try {
+        await attempt();
+        return;
+      } on ApiError catch (error) {
+        if (!_shouldRetryContactRequest(error)) {
+          rethrow;
+        }
+        lastError = error;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw const ApiError(
+      type: ApiErrorType.unknown,
+      message: 'Не удалось обновить запись contact.',
+    );
+  }
+
+  bool _shouldRetryContactRequest(ApiError error) {
+    final message = error.message.toLowerCase();
+    final idRequired =
+        message.contains('id') &&
+        (message.contains('required') || message.contains('обяз'));
+
+    return error.statusCode == 400 ||
+        error.statusCode == 404 ||
+        error.statusCode == 405 ||
+        error.statusCode == 409 ||
+        error.statusCode == 422 ||
+        error.statusCode == 500 ||
+        idRequired;
   }
 }

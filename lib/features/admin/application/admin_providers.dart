@@ -143,7 +143,7 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
   }
 
   AdminEntityItem? _existingSingletonItem() {
-    if (_entity.key != 'about_page') {
+    if (!_isSingletonEntity) {
       return null;
     }
     for (final item in state.items) {
@@ -152,6 +152,10 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
       }
     }
     return null;
+  }
+
+  bool get _isSingletonEntity {
+    return _entity.key == 'about_page' || _entity.key == 'contact';
   }
 
   Future<void> _submitCreate(Map<String, dynamic> payload) async {
@@ -382,6 +386,10 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
       final explicitPosition = _toPriority(prepared['position']);
       prepared['position'] =
           explicitPosition ?? _nextIntValueForField('position');
+    }
+
+    if (_entity.key == 'contact' && isCreate) {
+      prepared['id'] ??= 1;
     }
 
     if (_entity.key == 'about_sections') {
