@@ -508,23 +508,19 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
             ),
           ),
         if (state.errorMessage != null) const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            onPressed: state.submitting
-                ? null
-                : () {
-                    if (singletonItem != null) {
-                      _openEditDialog(entity, controller, singletonItem);
-                      return;
-                    }
-                    _openCreateDialog(entity, controller);
-                  },
-            icon: Icon(singletonItem == null ? Icons.add : Icons.edit_outlined),
-            label: const Text('Создать'),
+        if (singletonItem == null) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: state.submitting
+                  ? null
+                  : () => _openCreateDialog(entity, controller),
+              icon: const Icon(Icons.add),
+              label: const Text('Создать'),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         if (filtered.isEmpty)
           const Card(
             child: Padding(
@@ -754,11 +750,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         icon: const Icon(Icons.add),
         label: const Text('Добавить'),
       ),
-      FilledButton.tonalIcon(
-        onPressed: state.submitting ? null : controller.load,
-        icon: const Icon(Icons.refresh),
-        label: const Text('Обновить'),
-      ),
+      // FilledButton.tonalIcon(
+      //   onPressed: state.submitting ? null : controller.load,
+      //   icon: const Icon(Icons.refresh),
+      //   label: const Text('Обновить'),
+      // ),
     ];
 
     if (state.errorMessage != null) {
