@@ -124,7 +124,7 @@ class DashboardPage extends ConsumerWidget {
                     final childAspectRatio = width < 560 ? 2.3 : 1.9;
 
                     return GridView.builder(
-                      itemCount: adminEntities.length + 1,
+                      itemCount: visibleAdminEntities.length + 1,
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
                         mainAxisSpacing: 12,
@@ -141,7 +141,7 @@ class DashboardPage extends ConsumerWidget {
                           );
                         }
 
-                        final entity = adminEntities[index - 1];
+                        final entity = visibleAdminEntities[index - 1];
                         return _CountCard(
                           title: entity.title,
                           value: counts.countFor(entity.key),

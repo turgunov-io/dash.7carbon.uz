@@ -37,7 +37,7 @@ class AppRoutes {
       path: dashboard,
       icon: Icons.dashboard_outlined,
     ),
-    ...adminEntities.map(
+    ...visibleAdminEntities.map(
       (entity) => AppNavItem(
         title: entity.title,
         path: AppRoutes.entity(entity.key),

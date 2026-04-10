@@ -22,6 +22,7 @@ class EntityTable<T> extends StatefulWidget {
     required this.columns,
     this.searchHint = 'Поиск',
     this.searchMatcher,
+    this.showSearch = true,
     this.toolbarWidgets = const <Widget>[],
     super.key,
   });
@@ -30,6 +31,7 @@ class EntityTable<T> extends StatefulWidget {
   final List<DataColumnDefinition<T>> columns;
   final String searchHint;
   final SearchMatcher<T>? searchMatcher;
+  final bool showSearch;
   final List<Widget> toolbarWidgets;
 
   @override
@@ -93,29 +95,32 @@ class _EntityTableState<T> extends State<EntityTable<T>> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: searchWidth,
-                      child: TextField(
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.search),
-                          hintText: widget.searchHint,
+                if (widget.showSearch || widget.toolbarWidgets.isNotEmpty)
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (widget.showSearch)
+                        SizedBox(
+                          width: searchWidth,
+                          child: TextField(
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.search),
+                              hintText: widget.searchHint,
+                            ),
+                            onChanged: (value) {
+                              setState(() {
+                                _query = value;
+                              });
+                            },
+                          ),
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            _query = value;
-                          });
-                        },
-                      ),
-                    ),
-                    ...widget.toolbarWidgets,
-                  ],
-                ),
-                const SizedBox(height: 10),
+                      ...widget.toolbarWidgets,
+                    ],
+                  ),
+                if (widget.showSearch || widget.toolbarWidgets.isNotEmpty)
+                  const SizedBox(height: 10),
                 if (filtered.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),

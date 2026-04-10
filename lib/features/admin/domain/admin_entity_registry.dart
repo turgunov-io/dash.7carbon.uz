@@ -81,35 +81,17 @@ const adminEntities = <AdminEntityDefinition>[
     title: 'О нас: страница',
     endpoint: '/admin/about_page',
     icon: Icons.info_outline,
-    searchFields: ['title', 'intro_description', 'mission_description'],
+    searchFields: ['mission_description'],
     fields: [
       _idField,
-      AdminFieldDefinition(key: 'title', label: 'Заголовок'),
-      AdminFieldDefinition(
-        key: 'banner_image_url',
-        label: 'Баннер (URL)',
-        width: 320,
-      ),
-      AdminFieldDefinition(
-        key: 'intro_description',
-        label: 'Вступление',
-        type: AdminFieldType.multiline,
-        width: 360,
-      ),
       AdminFieldDefinition(
         key: 'mission_description',
         label: 'Миссия',
         type: AdminFieldType.multiline,
         width: 360,
       ),
-      AdminFieldDefinition(key: 'video_url', label: 'Видео URL', width: 320),
-      AdminFieldDefinition(
-        key: 'mission_image_url',
-        label: 'Изображение миссии',
-        width: 320,
-      ),
     ],
-    listFieldKeys: ['id', 'title', 'intro_description', 'mission_description'],
+    listFieldKeys: ['id', 'mission_description'],
   ),
   AdminEntityDefinition(
     key: 'about_metrics',
@@ -458,5 +440,11 @@ const adminEntities = <AdminEntityDefinition>[
     ],
   ),
 ];
+
+const embeddedAdminEntityKeys = <String>{'about_metrics', 'about_sections'};
+
+final visibleAdminEntities = adminEntities
+    .where((entity) => !embeddedAdminEntityKeys.contains(entity.key))
+    .toList(growable: false);
 
 final adminEntityMap = {for (final entity in adminEntities) entity.key: entity};

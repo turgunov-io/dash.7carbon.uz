@@ -34,7 +34,6 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   final _tuningSearchController = TextEditingController();
   final _partnersSearchController = TextEditingController();
   final _bannersSearchController = TextEditingController();
-  final _aboutPageSearchController = TextEditingController();
   final _portfolioSearchController = TextEditingController();
   final _workPostSearchController = TextEditingController();
   final _consultationsSearchController = TextEditingController();
@@ -42,7 +41,6 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   String _tuningSearchQuery = '';
   String _partnersSearchQuery = '';
   String _bannersSearchQuery = '';
-  String _aboutPageSearchQuery = '';
   String _portfolioSearchQuery = '';
   String _workPostSearchQuery = '';
   String _consultationsSearchQuery = '';
@@ -53,7 +51,6 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     _tuningSearchController.dispose();
     _partnersSearchController.dispose();
     _bannersSearchController.dispose();
-    _aboutPageSearchController.dispose();
     _portfolioSearchController.dispose();
     _workPostSearchController.dispose();
     _consultationsSearchController.dispose();
@@ -90,21 +87,6 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           icon: const Icon(Icons.refresh),
           label: const Text('Обновить'),
         ),
-        FilledButton.icon(
-          onPressed: state.submitting
-              ? null
-              : () {
-                  if (singletonItem != null) {
-                    _openEditDialog(entity, controller, singletonItem);
-                    return;
-                  }
-                  _openCreateDialog(entity, controller);
-                },
-          icon: Icon(
-            singletonItem == null ? Icons.add : Icons.edit_outlined,
-          ),
-          label: const Text('Создать'),
-        ),
       ],
       child: _buildContent(
         entity: entity,
@@ -130,6 +112,14 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       );
     }
 
+    if (entity.key == 'about_page') {
+      return _buildAboutPageList(
+        entity: entity,
+        state: state,
+        controller: controller,
+      );
+    }
+
     if (state.items.isEmpty) {
       return const EmptyState(message: 'Записи отсутствуют');
     }
@@ -144,14 +134,6 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
 
     if (entity.key == 'partners') {
       return _buildPartnersList(
-        entity: entity,
-        state: state,
-        controller: controller,
-      );
-    }
-
-    if (entity.key == 'about_page') {
-      return _buildAboutPageList(
         entity: entity,
         state: state,
         controller: controller,
@@ -491,244 +473,229 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     required AdminEntityState state,
     required AdminEntityController controller,
   }) {
-    final query = _aboutPageSearchQuery.trim().toLowerCase();
-    final filtered = state.items
-        .where((item) {
-          if (query.isEmpty) {
-            return true;
-          }
-          final values = item.values;
-          return <String>[
-            item.id.toString(),
-            _displayValue(values['title']),
-            _displayValue(values['intro_description']),
-            _displayValue(values['mission_description']),
-            _displayValue(values['video_url']),
-            _displayValue(values['banner_image_url']),
-            _displayValue(values['mission_image_url']),
-          ].any((value) => value.toLowerCase().contains(query));
-        })
-        .toList(growable: false);
+    final singletonItem = _existingSingletonItem(entity, state);
+    final aboutId = singletonItem == null
+        ? null
+        : int.tryParse(singletonItem.id.toString());
+    final metricsEntity = ref.watch(adminEntityByKeyProvider('about_metrics'));
+    final metricsState = ref.watch(
+      adminEntityControllerProvider('about_metrics'),
+    );
+    final metricsController = ref.read(
+      adminEntityControllerProvider('about_metrics').notifier,
+    );
+    final sectionsEntity = ref.watch(
+      adminEntityByKeyProvider('about_sections'),
+    );
+    final sectionsState = ref.watch(
+      adminEntityControllerProvider('about_sections'),
+    );
+    final sectionsController = ref.read(
+      adminEntityControllerProvider('about_sections').notifier,
+    );
+    final filtered = state.items;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return ListView(
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 420,
-              child: TextField(
-                controller: _aboutPageSearchController,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Поиск по заголовку, описанию и медиа URL',
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    _aboutPageSearchQuery = value;
-                  });
-                },
-              ),
+        if (state.errorMessage != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Text(
+              state.errorMessage!,
+              style: const TextStyle(color: AppColors.errorAccent),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            if (state.errorMessage != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Text(
-                  state.errorMessage!,
-                  style: const TextStyle(color: AppColors.errorAccent),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
+          ),
+        if (state.errorMessage != null) const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: state.submitting
+                ? null
+                : () {
+                    if (singletonItem != null) {
+                      _openEditDialog(entity, controller, singletonItem);
+                      return;
+                    }
+                    _openCreateDialog(entity, controller);
+                  },
+            icon: Icon(singletonItem == null ? Icons.add : Icons.edit_outlined),
+            label: const Text('Создать'),
+          ),
         ),
         const SizedBox(height: 12),
         if (filtered.isEmpty)
-          const Expanded(
-            child: EmptyState(message: 'По выбранным фильтрам записей нет'),
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: Text('Записи не найдены')),
+            ),
           )
         else
-          Expanded(
-            child: ListView.builder(
-              itemCount: filtered.length,
-              itemBuilder: (context, index) {
-                final item = filtered[index];
-                final title = _displayValue(item.values['title']);
-                final introDescription = _displayValue(
-                  item.values['intro_description'],
-                );
-                final missionDescription = _displayValue(
-                  item.values['mission_description'],
-                );
-                final videoUrlText = _displayValue(item.values['video_url']);
-                final videoUrl = _normalizedUrl(item.values['video_url']);
-                final bannerUrls = _extractUrlListByKeys(
-                  item.values,
-                  const ['banner_image_url'],
-                );
-                final missionImageUrls = _extractUrlListByKeys(
-                  item.values,
-                  const ['mission_image_url'],
-                );
-                final bannerUrl = bannerUrls.isEmpty ? null : bannerUrls.first;
-                final missionImageUrl = missionImageUrls.isEmpty
-                    ? null
-                    : missionImageUrls.first;
+          ...filtered.map((item) {
+            final missionDescription = _displayValue(
+              item.values['mission_description'],
+            );
 
-                final actionButtons = Wrap(
-                  spacing: 2,
-                  runSpacing: 2,
-                  children: [
-                    IconButton(
-                      tooltip: 'Детали',
-                      onPressed: () =>
-                          _openDetailsDialog(entity, controller, item.id),
-                      icon: const Icon(Icons.visibility_outlined),
-                    ),
-                    IconButton(
-                      tooltip: 'Редактировать',
-                      onPressed: () =>
-                          _openEditDialog(entity, controller, item),
-                      icon: const Icon(Icons.edit_outlined),
-                    ),
-                    IconButton(
-                      tooltip: 'Удалить',
-                      onPressed: () =>
-                          _confirmDelete(entity, controller, item.id),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
-                  ],
-                );
+            final actionButtons = Wrap(
+              spacing: 2,
+              runSpacing: 2,
+              children: [
+                IconButton(
+                  tooltip: 'Редактировать',
+                  onPressed: () => _openEditDialog(entity, controller, item),
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+                IconButton(
+                  tooltip: 'Удалить',
+                  onPressed: () => _confirmDelete(entity, controller, item.id),
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            );
 
-                final detailsBlock = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        Chip(
-                          label: Text('ID: ${item.id}'),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        if (bannerUrl != null)
-                          const Chip(
-                            label: Text('Banner'),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        if (missionImageUrl != null)
-                          const Chip(
-                            label: Text('Mission image'),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        if (videoUrl != null)
-                          const Chip(
-                            label: Text('Video'),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _buildAboutTextSection(
-                      context,
-                      label: 'Вступление',
-                      value: introDescription,
-                      maxLines: 4,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildAboutTextSection(
-                      context,
-                      label: 'Миссия',
-                      value: missionDescription,
-                      maxLines: 4,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildAboutTextSection(
-                      context,
-                      label: 'Видео URL',
-                      value: videoUrlText,
-                      selectable: true,
-                      maxLines: 3,
-                    ),
-                  ],
-                );
+            final detailsBlock = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAboutTextSection(
+                  context,
+                  label: 'Миссия',
+                  value: missionDescription,
+                  maxLines: 12,
+                ),
+              ],
+            );
 
-                final mediaBlock = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildAboutMediaTile(
-                      context,
-                      label: 'Баннер',
-                      url: bannerUrl,
-                      aspectRatio: 16 / 7,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildAboutMediaTile(
-                      context,
-                      label: 'Изображение миссии',
-                      url: missionImageUrl,
-                      aspectRatio: 4 / 3,
-                    ),
-                  ],
-                );
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final compact = constraints.maxWidth < 1100;
-
-                        if (compact) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              detailsBlock,
-                              const SizedBox(height: 14),
-                              mediaBlock,
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: actionButtons,
-                              ),
-                            ],
-                          );
-                        }
-
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: detailsBlock),
-                            const SizedBox(width: 18),
-                            SizedBox(width: 360, child: mediaBlock),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 130,
-                              child: Align(
-                                alignment: Alignment.topRight,
-                                child: actionButtons,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => _openDetailsDialog(entity, controller, item.id),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      detailsBlock,
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: actionButtons,
+                      ),
+                    ],
                   ),
-                );
-              },
+                ),
+              ),
+            );
+          }),
+        const SizedBox(height: 16),
+        _buildAboutSubsectionTable(
+          title: 'Метрики',
+          entity: metricsEntity,
+          state: metricsState,
+          controller: metricsController,
+          aboutId: aboutId,
+          searchHint: 'Поиск по ключу, названию и значению',
+          searchMatcher: (item, normalizedQuery) {
+            return _displayValue(
+                  item.values['metric_key'],
+                ).toLowerCase().contains(normalizedQuery) ||
+                _displayValue(
+                  item.values['metric_label'],
+                ).toLowerCase().contains(normalizedQuery) ||
+                _displayValue(
+                  item.values['metric_value'],
+                ).toLowerCase().contains(normalizedQuery);
+          },
+          columns: [
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'ID',
+              sortValue: (item) => _sortValue(item.values['id']),
+              cellBuilder: (item) => Text(item.id.toString()),
             ),
-          ),
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'Ключ',
+              sortValue: (item) => _sortValue(item.values['metric_key']),
+              cellBuilder: (item) =>
+                  Text(_displayValue(item.values['metric_key'])),
+            ),
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'Название',
+              sortValue: (item) => _sortValue(item.values['metric_label']),
+              cellBuilder: (item) =>
+                  Text(_displayValue(item.values['metric_label'])),
+            ),
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'Значение',
+              sortValue: (item) => _sortValue(item.values['metric_value']),
+              cellBuilder: (item) =>
+                  Text(_displayValue(item.values['metric_value'])),
+            ),
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'Позиция',
+              sortValue: (item) => _sortValue(item.values['position']),
+              cellBuilder: (item) =>
+                  Text(_displayValue(item.values['position'])),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildAboutSubsectionTable(
+          title: 'Секции',
+          entity: sectionsEntity,
+          state: sectionsState,
+          controller: sectionsController,
+          aboutId: aboutId,
+          searchHint: 'Поиск по ключу, заголовку и описанию',
+          searchMatcher: (item, normalizedQuery) {
+            return _displayValue(
+                  item.values['section_key'],
+                ).toLowerCase().contains(normalizedQuery) ||
+                _displayValue(
+                  item.values['title'],
+                ).toLowerCase().contains(normalizedQuery) ||
+                _displayValue(
+                  item.values['description'],
+                ).toLowerCase().contains(normalizedQuery);
+          },
+          columns: [
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'ID',
+              sortValue: (item) => _sortValue(item.values['id']),
+              cellBuilder: (item) => Text(item.id.toString()),
+            ),
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'Ключ',
+              sortValue: (item) => _sortValue(item.values['section_key']),
+              cellBuilder: (item) =>
+                  Text(_displayValue(item.values['section_key'])),
+            ),
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'Заголовок',
+              sortValue: (item) => _sortValue(item.values['title']),
+              cellBuilder: (item) => Text(_displayValue(item.values['title'])),
+            ),
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'Описание',
+              sortValue: (item) => _sortValue(item.values['description']),
+              cellBuilder: (item) => SizedBox(
+                width: 320,
+                child: Text(
+                  _displayValue(item.values['description']),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'Позиция',
+              sortValue: (item) => _sortValue(item.values['position']),
+              cellBuilder: (item) =>
+                  Text(_displayValue(item.values['position'])),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -747,11 +714,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         Text(label, style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 6),
         if (selectable)
-          SelectableText(
-            value,
-            maxLines: maxLines,
-            style: textStyle,
-          )
+          SelectableText(value, maxLines: maxLines, style: textStyle)
         else
           Text(
             value,
@@ -763,32 +726,160 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     );
   }
 
-  Widget _buildAboutMediaTile(
-    BuildContext context, {
-    required String label,
-    required String? url,
-    required double aspectRatio,
+  Widget _buildAboutSubsectionTable({
+    required String title,
+    required AdminEntityDefinition entity,
+    required AdminEntityState state,
+    required AdminEntityController controller,
+    required int? aboutId,
+    required String searchHint,
+    required SearchMatcher<AdminEntityItem> searchMatcher,
+    required List<DataColumnDefinition<AdminEntityItem>> columns,
   }) {
+    final toolbar = <Widget>[
+      FilledButton.icon(
+        onPressed: state.submitting
+            ? null
+            : () {
+                if (aboutId == null) {
+                  _showMessage('Сначала создайте запись страницы "О нас"');
+                  return;
+                }
+                _openCreateDialog(
+                  entity,
+                  controller,
+                  extraPayload: {'about_id': aboutId},
+                );
+              },
+        icon: const Icon(Icons.add),
+        label: const Text('Добавить'),
+      ),
+      FilledButton.tonalIcon(
+        onPressed: state.submitting ? null : controller.load,
+        icon: const Icon(Icons.refresh),
+        label: const Text('Обновить'),
+      ),
+    ];
+
+    if (state.errorMessage != null) {
+      toolbar.add(
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Text(
+            state.errorMessage!,
+            style: const TextStyle(color: AppColors.errorAccent),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+
+    if (state.status == AdminLoadStatus.loading && state.items.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 16),
+              const Center(child: CircularProgressIndicator()),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (state.status == AdminLoadStatus.failure && state.items.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text(state.errorMessage ?? 'Не удалось загрузить данные'),
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: controller.load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Повторить'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 6),
-        InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: url == null ? null : () => _openSingleImageDialog(url),
-          child: AspectRatio(
-            aspectRatio: aspectRatio,
-            child: _BannerImagePreview(url: url),
-          ),
-        ),
-        const SizedBox(height: 6),
-        SelectableText(
-          url ?? dashValue,
-          maxLines: 2,
-          style: Theme.of(context).textTheme.bodySmall,
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        EntityTable<AdminEntityItem>(
+          items: state.items,
+          columns: [
+            ...columns,
+            DataColumnDefinition<AdminEntityItem>(
+              label: 'Действия',
+              cellBuilder: (item) => _buildEntityActions(
+                entity: entity,
+                controller: controller,
+                item: item,
+                aboutId: aboutId,
+              ),
+            ),
+          ],
+          showSearch: false,
+          searchHint: searchHint,
+          searchMatcher: searchMatcher,
+          toolbarWidgets: toolbar,
         ),
       ],
+    );
+  }
+
+  Widget _buildEntityActions({
+    required AdminEntityDefinition entity,
+    required AdminEntityController controller,
+    required AdminEntityItem item,
+    int? aboutId,
+  }) {
+    final rawAboutId = item.values['about_id'];
+    final resolvedAboutId =
+        aboutId ??
+        (rawAboutId == null ? null : int.tryParse(rawAboutId.toString()));
+
+    return SizedBox(
+      width: 156,
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Детали',
+            onPressed: () => _openDetailsDialog(entity, controller, item.id),
+            icon: const Icon(Icons.visibility_outlined),
+          ),
+          IconButton(
+            tooltip: 'Редактировать',
+            onPressed: () => _openEditDialog(
+              entity,
+              controller,
+              item,
+              extraPayload: resolvedAboutId == null
+                  ? null
+                  : {'about_id': resolvedAboutId},
+            ),
+            icon: const Icon(Icons.edit_outlined),
+          ),
+          IconButton(
+            tooltip: 'Удалить',
+            onPressed: () => _confirmDelete(entity, controller, item.id),
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2308,8 +2399,9 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
 
   Future<void> _openCreateDialog(
     AdminEntityDefinition entity,
-    AdminEntityController controller,
-  ) async {
+    AdminEntityController controller, {
+    Map<String, dynamic>? extraPayload,
+  }) async {
     final payload = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) =>
@@ -2319,8 +2411,15 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       return;
     }
 
+    final Map<String, dynamic> nextPayload;
+    if (extraPayload == null) {
+      nextPayload = payload;
+    } else {
+      nextPayload = Map<String, dynamic>.from(payload)..addAll(extraPayload);
+    }
+
     try {
-      await controller.create(payload);
+      await controller.create(nextPayload);
       _showMessage('Запись создана');
     } on ApiError catch (error) {
       _showMessage(error.message);
@@ -2332,8 +2431,9 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   Future<void> _openEditDialog(
     AdminEntityDefinition entity,
     AdminEntityController controller,
-    AdminEntityItem item,
-  ) async {
+    AdminEntityItem item, {
+    Map<String, dynamic>? extraPayload,
+  }) async {
     final payload = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => _EntityFormDialog(
@@ -2346,8 +2446,15 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       return;
     }
 
+    final Map<String, dynamic> nextPayload;
+    if (extraPayload == null) {
+      nextPayload = payload;
+    } else {
+      nextPayload = Map<String, dynamic>.from(payload)..addAll(extraPayload);
+    }
+
     try {
-      await controller.update(item.id, payload);
+      await controller.update(item.id, nextPayload);
       _showMessage('Запись обновлена');
     } on ApiError catch (error) {
       _showMessage(error.message);
@@ -2464,6 +2571,24 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                 final item = snapshot.data;
                 if (item == null) {
                   return const Text('Запись не найдена');
+                }
+
+                if (entity.key == 'about_page') {
+                  return SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'mission_description',
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        SelectableText(
+                          _displayValue(item.values['mission_description']),
+                        ),
+                      ],
+                    ),
+                  );
                 }
 
                 final sortedEntries = item.values.entries.toList()
@@ -3029,14 +3154,7 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
   final _arrayErrors = <String, String>{};
 
   List<AdminFieldDefinition> get _formFields {
-    if (widget.entity.key != 'about_page' || widget.initialValues == null) {
-      return widget.entity.formFields;
-    }
-
-    const blockedFieldKeys = <String>{'title', 'intro_description'};
-    return widget.entity.formFields
-        .where((field) => !blockedFieldKeys.contains(field.key))
-        .toList(growable: false);
+    return widget.entity.formFields;
   }
 
   @override
@@ -3094,12 +3212,14 @@ class _EntityFormDialogState extends ConsumerState<_EntityFormDialog> {
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: _formFields.map((field) {
-                if (field.type == AdminFieldType.array) {
-                  return _buildArrayManager(field);
-                }
-                return _buildTextField(field);
-              }).toList(growable: false),
+              children: _formFields
+                  .map((field) {
+                    if (field.type == AdminFieldType.array) {
+                      return _buildArrayManager(field);
+                    }
+                    return _buildTextField(field);
+                  })
+                  .toList(growable: false),
             ),
           ),
         ),

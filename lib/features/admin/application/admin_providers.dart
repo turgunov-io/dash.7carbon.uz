@@ -306,6 +306,17 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
       prepared['position'] = explicitPosition ?? _nextServiceOfferingPosition();
     }
 
+    if ((_entity.key == 'about_metrics' || _entity.key == 'about_sections') &&
+        isCreate) {
+      final explicitPosition = _toPriority(prepared['position']);
+      prepared['position'] =
+          explicitPosition ?? _nextIntValueForField('position');
+    }
+
+    if (isCreate) {
+      prepared.removeWhere((key, value) => value == null);
+    }
+
     return prepared;
   }
 
