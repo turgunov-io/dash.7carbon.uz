@@ -46660,7 +46660,7 @@ $1(a){var s,r,q=a.em($.aXO(),t.T),p=t.N,o=A.aD(["Accept","application/json"],p,p
 if(n==null)n=""
 s=n.length!==0?n:""
 if(s.length!==0)o.m(0,"Authorization","Bearer "+s)
-r=A.aNW(A.aN7("http://localhost:7777",B.hX,o,B.hX,B.fM))
+r=A.aNW(A.aN7("https://api.7carbon.uz",B.hX,o,B.hX,B.fM))
 a.a2d(new A.aHd(r))
 return r},
 $S:345}
@@ -47491,7 +47491,7 @@ s=A.cY(r,"\\u0026","&")
 if(s.length===0||s==="\u2014"||s.toLowerCase()==="null")return n
 p=A.aRA(s)
 if(p!=null&&p.gD1())return s
-o=A.aRA("http://localhost:7777")
+o=A.aRA("https://api.7carbon.uz")
 if(o==null)return s
 if(B.c.bd(s,"//"))return o.geb()+":"+s
 if(B.c.bd(s,"/"))return o.a_(s).k(0)
@@ -48515,7 +48515,7 @@ Kw(a,b){return this.BM(!1,a,b,null)},
 atA(a){return this.BM(a,null,null,null)},
 aur(a,b,c){return this.BM(a,null,b,c)}}
 A.aGM.prototype={
-$1(a){var s=new A.m5(A.aNW(A.aN7("http://localhost:7777",B.hX,B.QS,B.hX,B.fM)))
+$1(a){var s=new A.m5(A.aNW(A.aN7("https://api.7carbon.uz",B.hX,B.QS,B.hX,B.fM)))
 a.a2d(s.gcn())
 return s},
 $S:464}
