@@ -112,7 +112,7 @@ class ApiClient {
     } catch (error) {
       throw ApiError(
         type: ApiErrorType.unknown,
-        message: 'Неожиданная ошибка: $error',
+        message: 'РќРµРѕР¶РёРґР°РЅРЅР°СЏ РѕС€РёР±РєР°: $error',
         details: error,
       );
     }
@@ -129,8 +129,7 @@ class ApiClient {
       if (status == 'error') {
         throw ApiError(
           type: ApiErrorType.badRequest,
-          message:
-              (normalized['message'] as String?) ?? 'Сервер вернул ошибку.',
+          message: _extractEnvelopeMessage(normalized),
           details: normalized,
         );
       }
@@ -152,6 +151,37 @@ class ApiClient {
       }
     }
     return raw;
+  }
+
+  String _extractEnvelopeMessage(Map<String, dynamic> envelope) {
+    final message = envelope['message'];
+    final baseMessage = message is String && message.trim().isNotEmpty
+        ? message.trim()
+        : 'Сервер вернул ошибку.';
+
+    final errors = envelope['errors'];
+    if (errors is Map && errors.isNotEmpty) {
+      final buffer = <String>[];
+      for (final entry in errors.entries) {
+        final value = entry.value;
+        if (value is List) {
+          final joined = value.map((item) => item.toString()).join(', ');
+          if (joined.isNotEmpty) {
+            buffer.add('${entry.key}: $joined');
+          }
+        } else if (value != null) {
+          final text = value.toString().trim();
+          if (text.isNotEmpty) {
+            buffer.add('${entry.key}: $text');
+          }
+        }
+      }
+      if (buffer.isNotEmpty) {
+        return '$baseMessage: ${buffer.join(' | ')}';
+      }
+    }
+
+    return baseMessage;
   }
 
   void dispose() {

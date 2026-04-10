@@ -56,7 +56,12 @@ class AdminEntityDefinition {
 
   List<AdminFieldDefinition> get formFields {
     return fields
-        .where((field) => field.editable && field.key != 'id')
+        .where(
+          (field) =>
+              field.editable &&
+              field.key != 'id' &&
+              !(key == 'about_metrics' && field.key == 'metric_key'),
+        )
         .toList(growable: false);
   }
 }

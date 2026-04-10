@@ -155,6 +155,14 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
   }
 
   Future<void> _submitCreate(Map<String, dynamic> payload) async {
+    if (_entity.key == 'about_metrics') {
+      await _submitAboutMetricsWithFallback(
+        payload: payload,
+        submit: (nextPayload) => _repository.create(_entity, nextPayload),
+      );
+      return;
+    }
+
     if (_entity.key != 'tuning') {
       await _submitWithNotEditableFallback(
         payload: payload,
@@ -169,6 +177,14 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
   }
 
   Future<void> _submitUpdate(dynamic id, Map<String, dynamic> payload) async {
+    if (_entity.key == 'about_metrics') {
+      await _submitAboutMetricsWithFallback(
+        payload: payload,
+        submit: (nextPayload) => _repository.update(_entity, id, nextPayload),
+      );
+      return;
+    }
+
     if (_entity.key != 'tuning') {
       await _submitWithNotEditableFallback(
         payload: payload,
@@ -254,6 +270,61 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
     }
   }
 
+  Future<void> _submitAboutMetricsWithFallback({
+    required Map<String, dynamic> payload,
+    required Future<void> Function(Map<String, dynamic> payload) submit,
+  }) async {
+    ApiError? lastError;
+    final attempts = _buildAboutMetricsSubmitPayloads(payload);
+
+    for (var i = 0; i < attempts.length; i++) {
+      final attempt = attempts[i];
+      try {
+        await submit(attempt);
+        return;
+      } on ApiError catch (error) {
+        lastError = error;
+        final sanitized = _stripNotEditableFields(attempt, error);
+        if (sanitized != null) {
+          attempts.add(sanitized);
+        }
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw const ApiError(
+      type: ApiErrorType.unknown,
+      message: 'Не удалось отправить данные для метрики.',
+    );
+  }
+
+  List<Map<String, dynamic>> _buildAboutMetricsSubmitPayloads(
+    Map<String, dynamic> payload,
+  ) {
+    final attempts = <Map<String, dynamic>>[];
+    final seen = <String>{};
+
+    void addAttempt(Map<String, dynamic> nextPayload) {
+      final signature = [
+        nextPayload['about_id'],
+        nextPayload['metric_label'],
+        nextPayload['metric_value'],
+        nextPayload['position'],
+      ].join('|');
+      if (seen.add(signature)) {
+        attempts.add(nextPayload);
+      }
+    }
+
+    final base = Map<String, dynamic>.from(payload)..['metric_key'] = '1';
+    addAttempt(base);
+
+    return attempts;
+  }
+
   Future<void> _wrapSubmit(Future<void> Function() action) async {
     if (!mounted) {
       return;
@@ -313,11 +384,54 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
           explicitPosition ?? _nextIntValueForField('position');
     }
 
+    if (_entity.key == 'about_sections') {
+      final rawSectionKey = prepared['section_key']?.toString().trim() ?? '';
+      if (rawSectionKey.isEmpty) {
+        prepared['section_key'] = _buildAboutSectionKey(
+          prepared['title'],
+          fallbackSuffix: _nextIntValueForField('position'),
+        );
+      } else {
+        prepared['section_key'] = rawSectionKey;
+      }
+    }
+
     if (isCreate) {
       prepared.removeWhere((key, value) => value == null);
     }
 
     return prepared;
+  }
+
+  String _buildAboutSectionKey(
+    dynamic title, {
+    required int fallbackSuffix,
+  }) {
+    final source = title?.toString().trim().toLowerCase() ?? '';
+    var normalized = source.replaceAll(RegExp(r'[\s/\\|,.;:]+'), '_');
+    normalized = normalized.replaceAll(
+      RegExp(r'[^a-z0-9_\u0400-\u04FF-]+'),
+      '',
+    );
+    normalized = normalized.replaceAll(RegExp(r'_+'), '_');
+    normalized = normalized.replaceAll(RegExp(r'^_+|_+$'), '');
+
+    final baseKey = normalized.isEmpty ? 'section_$fallbackSuffix' : normalized;
+    final existingKeys = state.items
+        .map((item) => item.values['section_key']?.toString().trim())
+        .whereType<String>()
+        .where((key) => key.isNotEmpty)
+        .toSet();
+
+    if (!existingKeys.contains(baseKey)) {
+      return baseKey;
+    }
+
+    var index = 2;
+    while (existingKeys.contains('${baseKey}_$index')) {
+      index++;
+    }
+    return '${baseKey}_$index';
   }
 
   void _normalizeWorkPostPayload(Map<String, dynamic> payload) {

@@ -592,12 +592,9 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
           state: metricsState,
           controller: metricsController,
           aboutId: aboutId,
-          searchHint: 'Поиск по ключу, названию и значению',
+          searchHint: 'Поиск по названию и значению',
           searchMatcher: (item, normalizedQuery) {
             return _displayValue(
-                  item.values['metric_key'],
-                ).toLowerCase().contains(normalizedQuery) ||
-                _displayValue(
                   item.values['metric_label'],
                 ).toLowerCase().contains(normalizedQuery) ||
                 _displayValue(
@@ -610,12 +607,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               sortValue: (item) => _sortValue(item.values['id']),
               cellBuilder: (item) => Text(item.id.toString()),
             ),
-            DataColumnDefinition<AdminEntityItem>(
-              label: 'Ключ',
-              sortValue: (item) => _sortValue(item.values['metric_key']),
-              cellBuilder: (item) =>
-                  Text(_displayValue(item.values['metric_key'])),
-            ),
+            //   label: 'Ключ',
             DataColumnDefinition<AdminEntityItem>(
               label: 'Название',
               sortValue: (item) => _sortValue(item.values['metric_label']),
@@ -661,12 +653,12 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               sortValue: (item) => _sortValue(item.values['id']),
               cellBuilder: (item) => Text(item.id.toString()),
             ),
-            DataColumnDefinition<AdminEntityItem>(
-              label: 'Ключ',
-              sortValue: (item) => _sortValue(item.values['section_key']),
-              cellBuilder: (item) =>
-                  Text(_displayValue(item.values['section_key'])),
-            ),
+            // DataColumnDefinition<AdminEntityItem>(
+            //   label: 'Ключ',
+            //   sortValue: (item) => _sortValue(item.values['section_key']),
+            //   cellBuilder: (item) =>
+            //       Text(_displayValue(item.values['section_key'])),
+            // ),
             DataColumnDefinition<AdminEntityItem>(
               label: 'Заголовок',
               sortValue: (item) => _sortValue(item.values['title']),
@@ -843,10 +835,11 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
     required AdminEntityItem item,
     int? aboutId,
   }) {
-    final rawAboutId = item.values['about_id'];
-    final resolvedAboutId =
-        aboutId ??
-        (rawAboutId == null ? null : int.tryParse(rawAboutId.toString()));
+    final editPayload = _hiddenEditPayload(
+      entity: entity,
+      item: item,
+      aboutId: aboutId,
+    );
 
     return SizedBox(
       width: 156,
@@ -863,9 +856,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
               entity,
               controller,
               item,
-              extraPayload: resolvedAboutId == null
-                  ? null
-                  : {'about_id': resolvedAboutId},
+              extraPayload: editPayload,
             ),
             icon: const Icon(Icons.edit_outlined),
           ),
@@ -877,6 +868,31 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         ],
       ),
     );
+  }
+
+  Map<String, dynamic>? _hiddenEditPayload({
+    required AdminEntityDefinition entity,
+    required AdminEntityItem item,
+    int? aboutId,
+  }) {
+    final payload = <String, dynamic>{};
+    final rawAboutId = item.values['about_id'];
+    final resolvedAboutId =
+        aboutId ??
+        (rawAboutId == null ? null : int.tryParse(rawAboutId.toString()));
+
+    if (resolvedAboutId != null) {
+      payload['about_id'] = resolvedAboutId;
+    }
+
+    if (entity.key == 'about_sections') {
+      final sectionKey = item.values['section_key']?.toString().trim();
+      if (sectionKey != null && sectionKey.isNotEmpty) {
+        payload['section_key'] = sectionKey;
+      }
+    }
+
+    return payload.isEmpty ? null : payload;
   }
 
   Widget _buildPartnersList({
@@ -2419,7 +2435,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       _showMessage('Запись создана');
     } on ApiError catch (error) {
       _showMessage(error.message);
-    } catch (_) {
+    } catch (error) {
       _showMessage('Не удалось создать запись. Проверьте заполнение полей.');
     }
   }
@@ -2454,7 +2470,7 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
       _showMessage('Запись обновлена');
     } on ApiError catch (error) {
       _showMessage(error.message);
-    } catch (_) {
+    } catch (error) {
       _showMessage('Не удалось обновить запись. Проверьте заполнение полей.');
     }
   }
@@ -2626,7 +2642,15 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
                     return;
                   }
                   Navigator.of(context).pop();
-                  await _openEditDialog(entity, controller, item);
+                  await _openEditDialog(
+                    entity,
+                    controller,
+                    item,
+                    extraPayload: _hiddenEditPayload(
+                      entity: entity,
+                      item: item,
+                    ),
+                  );
                 } catch (_) {
                   if (!mounted) {
                     return;

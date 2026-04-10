@@ -98,9 +98,10 @@ const adminEntities = <AdminEntityDefinition>[
     title: 'О нас: метрики',
     endpoint: '/admin/about_metrics',
     icon: Icons.bar_chart_outlined,
-    searchFields: ['metric_key', 'metric_label'],
+    searchFields: ['metric_label', 'metric_value'],
     fields: [
       _idField,
+      //   label: 'Ключ метрики',
       AdminFieldDefinition(
         key: 'metric_key',
         label: 'Ключ метрики',
@@ -127,7 +128,6 @@ const adminEntities = <AdminEntityDefinition>[
     ],
     listFieldKeys: [
       'id',
-      'metric_key',
       'metric_value',
       'metric_label',
       'position',
@@ -141,12 +141,12 @@ const adminEntities = <AdminEntityDefinition>[
     searchFields: ['section_key', 'title', 'description'],
     fields: [
       _idField,
-      AdminFieldDefinition(
-        key: 'section_key',
-        label: 'Ключ секции',
-        required: true,
-        nullable: false,
-      ),
+      // AdminFieldDefinition(
+      //   key: 'section_key',
+      //   label: 'Ключ секции',
+      //   required: true,
+      //   nullable: false,
+      // ),
       AdminFieldDefinition(
         key: 'title',
         label: 'Заголовок',

@@ -42,7 +42,7 @@ class _EntityTableState<T> extends State<EntityTable<T>> {
   String _query = '';
   int? _sortColumnIndex;
   bool _sortAscending = true;
-  int _rowsPerPage = 10;
+  final int _rowsPerPage = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -180,14 +180,7 @@ class _EntityTableState<T> extends State<EntityTable<T>> {
           source: dataSource,
           rowsPerPage: rowsPerPage,
           availableRowsPerPage: availableRowsPerPage,
-          onRowsPerPageChanged: (value) {
-            if (value == null) {
-              return;
-            }
-            setState(() {
-              _rowsPerPage = value;
-            });
-          },
+          onRowsPerPageChanged: null,
           showFirstLastButtons: true,
           sortColumnIndex: _sortColumnIndex,
           sortAscending: _sortAscending,
