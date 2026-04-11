@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_error.dart';
@@ -30,6 +32,13 @@ class AdminEntityPage extends ConsumerStatefulWidget {
 }
 
 class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
+  static const Set<String> _consultationsDefaultColumns = <String>{
+    'date',
+    'client',
+    'phone',
+    'service',
+  };
+
   bool _createOpenedOnce = false;
   final _tuningSearchController = TextEditingController();
   final _partnersSearchController = TextEditingController();
@@ -48,6 +57,14 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
   String _workPostSearchQuery = '';
   String _consultationsSearchQuery = '';
   String _serviceOfferingsSearchQuery = '';
+  final Set<String> _selectedConsultationIds = <String>{};
+  final Set<String> _consultationsVisibleColumns = Set<String>.from(
+    _consultationsDefaultColumns,
+  );
+  String _consultationsSortKey = 'date';
+  bool _consultationsSortAscending = false;
+  bool _consultationsUseRandomOrder = false;
+  int _consultationsShuffleSeed = 0;
 
   @override
   void dispose() {
@@ -1914,205 +1931,697 @@ class _AdminEntityPageState extends ConsumerState<AdminEntityPage> {
         })
         .toList(growable: false);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 380,
-              child: TextField(
-                controller: _consultationsSearchController,
-                onTapOutside: (_) => _dismissActiveFocus(),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Поиск по имени, телефону, услуге или статусу',
+    final rows = List<AdminEntityItem>.of(filtered, growable: false);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final surfaceColor = isDark ? AppColors.surfaceDarker : AppColors.white;
+    final mutedSurface = isDark
+        ? AppColors.surfaceNightSoft
+        : const Color(0xFFF8FAFC);
+    final borderColor = isDark
+        ? AppColors.borderLight
+        : const Color(0xFFD8E1EB);
+    final subtleTextColor = isDark
+        ? AppColors.white60
+        : const Color(0xFF64748B);
+    final visibleColumns = _consultationColumnConfigs
+        .where((column) => _consultationsVisibleColumns.contains(column.key))
+        .toList(growable: false);
+
+    if (_consultationsUseRandomOrder) {
+      rows.shuffle(Random(_consultationsShuffleSeed));
+    } else {
+      rows.sort((left, right) {
+        final leftValue = _consultationSortValue(left, _consultationsSortKey);
+        final rightValue = _consultationSortValue(right, _consultationsSortKey);
+        final result = _compareDynamicValues(leftValue, rightValue);
+        return _consultationsSortAscending ? result : -result;
+      });
+    }
+
+    final selectedVisibleCount = rows.where((item) {
+      return _selectedConsultationIds.contains(item.id.toString());
+    }).length;
+    final allVisibleSelected =
+        rows.isNotEmpty && selectedVisibleCount == rows.length;
+    final selectedRowsLabel =
+        'Выбрано $selectedVisibleCount из ${rows.length} строк.';
+
+    final footerSelectionValue = rows.isEmpty
+        ? false
+        : allVisibleSelected
+        ? true
+        : selectedVisibleCount == 0
+        ? false
+        : null;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+        boxShadow: isDark
+            ? null
+            : const [
+                BoxShadow(
+                  color: Color(0x140F172A),
+                  blurRadius: 24,
+                  offset: Offset(0, 10),
                 ),
-                onChanged: (value) {
-                  setState(() {
-                    _consultationsSearchQuery = value;
-                  });
-                },
-              ),
-            ),
-            if (state.errorMessage != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Text(
-                  state.errorMessage!,
-                  style: const TextStyle(color: AppColors.errorAccent),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: 320,
+                  child: TextField(
+                    controller: _consultationsSearchController,
+                    onTapOutside: (_) => _dismissActiveFocus(),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintText: 'Поиск по консультациям...',
+                      filled: true,
+                      fillColor: mutedSurface,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: colorScheme.primary),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _consultationsSearchQuery = value;
+                      });
+                    },
+                  ),
                 ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (filtered.isEmpty)
-          const Expanded(
-            child: EmptyState(message: 'По выбранным фильтрам записей нет'),
-          )
-        else
-          Expanded(
-            child: ListView.builder(
-              itemCount: filtered.length,
-              itemBuilder: (context, index) {
-                final item = filtered[index];
-                final firstName = _displayValue(item.values['first_name']);
-                final lastName = _displayValue(item.values['last_name']);
-                final phone = _displayValue(item.values['phone']);
-                final serviceType = _displayValue(item.values['service_type']);
-                final carModel = _displayValue(item.values['car_model']);
-                final preferredCallTime = _displayValue(
-                  item.values['preferred_call_time'],
-                );
-                final comments = _displayValue(item.values['comments']);
-                final createdAt = _displayValue(item.values['created_at']);
-                final fullName = ('$firstName $lastName').trim();
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final compact = constraints.maxWidth < 920;
-
-                        final actionButtons = Wrap(
-                          spacing: 2,
-                          runSpacing: 2,
-                          children: [
-                            IconButton(
-                              tooltip: 'Детали',
-                              onPressed: () => _openDetailsDialog(
-                                entity,
-                                controller,
-                                item.id,
-                              ),
-                              icon: const Icon(Icons.visibility_outlined),
-                            ),
-                            IconButton(
-                              tooltip: 'Edit',
-                              onPressed: () =>
-                                  _openEditDialog(entity, controller, item),
-                              icon: const Icon(Icons.edit_outlined),
-                            ),
-                            IconButton(
-                              tooltip: 'Удалить',
-                              onPressed: () =>
-                                  _confirmDelete(entity, controller, item.id),
-                              icon: const Icon(Icons.delete_outline),
-                            ),
-                          ],
-                        );
-
-                        final infoBlock = Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              fullName == dashValue ? 'Консультация' : fullName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 6,
-                              children: [
-                                Chip(
-                                  label: Text('ID: ${item.id}'),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                                if (createdAt != dashValue)
-                                  Chip(
-                                    label: Text('Создано: $createdAt'),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Телефон: $phone',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              'Услуга: $serviceType',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (carModel != dashValue)
-                              Text(
-                                'Модель авто: $carModel',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            if (preferredCallTime != dashValue)
-                              Text(
-                                'Удобное время звонка: $preferredCallTime',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            if (comments != dashValue) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                comments,
-                                maxLines: compact ? 4 : 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ],
-                        );
-
-                        if (compact) {
-                          return InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () =>
-                                _openDetailsDialog(entity, controller, item.id),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                infoBlock,
-                                const SizedBox(height: 6),
-                                actionButtons,
-                              ],
-                            ),
-                          );
-                        }
-
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () =>
-                              _openDetailsDialog(entity, controller, item.id),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: infoBlock),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 130,
-                                child: Align(
-                                  alignment: Alignment.topRight,
-                                  child: actionButtons,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                FilledButton(
+                  onPressed: rows.isEmpty
+                      ? null
+                      : () {
+                          setState(() {
+                            _consultationsUseRandomOrder = true;
+                            _consultationsShuffleSeed++;
+                          });
+                        },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: isDark
+                        ? colorScheme.primaryContainer
+                        : const Color(0xFF111827),
+                    foregroundColor: isDark
+                        ? colorScheme.onPrimaryContainer
+                        : AppColors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                );
-              },
+                  child: const Text('Перемешать'),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'Колонки',
+                  onSelected: _toggleConsultationsColumn,
+                  itemBuilder: (context) {
+                    return _consultationColumnConfigs
+                        .map(
+                          (column) => CheckedPopupMenuItem<String>(
+                            value: column.key,
+                            checked: _consultationsVisibleColumns.contains(
+                              column.key,
+                            ),
+                            child: Text(column.label),
+                          ),
+                        )
+                        .toList(growable: false);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: surfaceColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Колонки',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Icon(Icons.keyboard_arrow_down_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+                if (state.errorMessage != null)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Text(
+                      state.errorMessage!,
+                      style: const TextStyle(color: AppColors.errorAccent),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
             ),
           ),
+          Divider(height: 1, thickness: 1, color: borderColor),
+          Expanded(
+            child: rows.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Консультации не найдены',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: subtleTextColor,
+                        ),
+                      ),
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final minimumWidth =
+                          120 +
+                          72 +
+                          visibleColumns.fold<double>(
+                            0,
+                            (sum, column) => sum + column.width,
+                          );
+
+                      return Scrollbar(
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minWidth: max(
+                                  constraints.maxWidth,
+                                  minimumWidth,
+                                ).toDouble(),
+                              ),
+                              child: _buildConsultationsDataTable(
+                                entity: entity,
+                                controller: controller,
+                                rows: rows,
+                                visibleColumns: visibleColumns,
+                                surfaceColor: surfaceColor,
+                                mutedSurface: mutedSurface,
+                                borderColor: borderColor,
+                                subtleTextColor: subtleTextColor,
+                                isDark: isDark,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+            decoration: BoxDecoration(
+              color: mutedSurface,
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(20),
+              ),
+              border: Border(top: BorderSide(color: borderColor)),
+            ),
+            child: Row(
+              children: [
+                Checkbox(
+                  value: footerSelectionValue,
+                  tristate: true,
+                  onChanged: rows.isEmpty
+                      ? null
+                      : (value) {
+                          setState(() {
+                            final shouldSelect = value ?? false;
+                            for (final item in rows) {
+                              final rowId = item.id.toString();
+                              if (shouldSelect) {
+                                _selectedConsultationIds.add(rowId);
+                              } else {
+                                _selectedConsultationIds.remove(rowId);
+                              }
+                            }
+                          });
+                        },
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    selectedRowsLabel,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: subtleTextColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConsultationsDataTable({
+    required AdminEntityDefinition entity,
+    required AdminEntityController controller,
+    required List<AdminEntityItem> rows,
+    required List<_ConsultationColumnConfig> visibleColumns,
+    required Color surfaceColor,
+    required Color mutedSurface,
+    required Color borderColor,
+    required Color subtleTextColor,
+    required bool isDark,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return DataTable(
+      showCheckboxColumn: true,
+      onSelectAll: (selected) {
+        setState(() {
+          final shouldSelect = selected ?? false;
+          for (final item in rows) {
+            final rowId = item.id.toString();
+            if (shouldSelect) {
+              _selectedConsultationIds.add(rowId);
+            } else {
+              _selectedConsultationIds.remove(rowId);
+            }
+          }
+        });
+      },
+      headingRowHeight: 68,
+      dataRowMinHeight: 78,
+      dataRowMaxHeight: 90,
+      horizontalMargin: 18,
+      checkboxHorizontalMargin: 18,
+      columnSpacing: 28,
+      sortColumnIndex: _consultationsUseRandomOrder
+          ? null
+          : _consultationSortColumnIndex(visibleColumns),
+      sortAscending: _consultationsSortAscending,
+      headingRowColor: WidgetStatePropertyAll<Color>(mutedSurface),
+      dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(WidgetState.selected)) {
+          return isDark
+              ? colorScheme.primary.withValues(alpha: 0.14)
+              : colorScheme.primary.withValues(alpha: 0.08);
+        }
+        return surfaceColor;
+      }),
+      dividerThickness: 0.8,
+      border: TableBorder(horizontalInside: BorderSide(color: borderColor)),
+      columns: [
+        DataColumn(
+          label: SizedBox(
+            width: 72,
+            child: _buildConsultationHeaderLabel(
+              label: '#',
+              active:
+                  !_consultationsUseRandomOrder &&
+                  _consultationsSortKey == 'id',
+            ),
+          ),
+          onSort: (_, ascending) {
+            _setConsultationsSort(key: 'id', ascending: ascending);
+          },
+        ),
+        ...visibleColumns.map((column) {
+          return DataColumn(
+            label: SizedBox(
+              width: column.width,
+              child: _buildConsultationHeaderLabel(
+                label: column.label,
+                active:
+                    !_consultationsUseRandomOrder &&
+                    _consultationsSortKey == column.key,
+              ),
+            ),
+            onSort: (_, ascending) {
+              _setConsultationsSort(key: column.key, ascending: ascending);
+            },
+          );
+        }),
+        const DataColumn(label: SizedBox(width: 44)),
+      ],
+      rows: rows
+          .map((item) {
+            final rowId = item.id.toString();
+            final selected = _selectedConsultationIds.contains(rowId);
+
+            return DataRow(
+              selected: selected,
+              onSelectChanged: (value) {
+                setState(() {
+                  if (value ?? false) {
+                    _selectedConsultationIds.add(rowId);
+                  } else {
+                    _selectedConsultationIds.remove(rowId);
+                  }
+                });
+              },
+              cells: [
+                DataCell(
+                  SizedBox(
+                    width: 72,
+                    child: Text(
+                      '#${item.id}',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: subtleTextColor,
+                      ),
+                    ),
+                  ),
+                ),
+                ...visibleColumns.map((column) {
+                  return DataCell(
+                    SizedBox(
+                      width: column.width,
+                      child: _buildConsultationTableCell(
+                        item: item,
+                        columnKey: column.key,
+                        subtleTextColor: subtleTextColor,
+                      ),
+                    ),
+                  );
+                }),
+                DataCell(
+                  SizedBox(
+                    width: 44,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: PopupMenuButton<String>(
+                        tooltip: 'Действия',
+                        onSelected: (action) {
+                          switch (action) {
+                            case 'details':
+                              _openDetailsDialog(entity, controller, item.id);
+                              break;
+                            case 'edit':
+                              _openEditDialog(entity, controller, item);
+                              break;
+                            case 'delete':
+                              _confirmDelete(entity, controller, item.id);
+                              break;
+                          }
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem<String>(
+                            value: 'details',
+                            child: Text('Детали'),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Text('Редактировать'),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Text('Удалить'),
+                          ),
+                        ],
+                        icon: const Icon(Icons.more_vert_rounded),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+
+  Widget _buildConsultationHeaderLabel({
+    required String label,
+    required bool active,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.white80 : const Color(0xFF1E293B);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+        ),
+        if (active) ...[
+          const SizedBox(width: 6),
+          Icon(
+            _consultationsSortAscending
+                ? Icons.arrow_upward_rounded
+                : Icons.arrow_downward_rounded,
+            size: 16,
+            color: textColor,
+          ),
+        ],
       ],
     );
+  }
+
+  Widget _buildConsultationTableCell({
+    required AdminEntityItem item,
+    required String columnKey,
+    required Color subtleTextColor,
+  }) {
+    switch (columnKey) {
+      case 'date':
+        return Text(
+          _formatConsultationTableDate(item.values['created_at']),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: subtleTextColor,
+            fontWeight: FontWeight.w600,
+          ),
+        );
+      case 'client':
+        final firstName = _displayValue(item.values['first_name']);
+        final lastName = _displayValue(item.values['last_name']);
+        final carModel = _displayValue(item.values['car_model']);
+        final fullName = ('$firstName $lastName').trim();
+        return _buildConsultationPrimarySecondary(
+          primary: fullName == dashValue ? 'Консультация' : fullName,
+          secondary: carModel == dashValue ? null : carModel,
+        );
+      case 'phone':
+        final phone = _displayValue(item.values['phone']);
+        final preferredCallTime = _displayValue(
+          item.values['preferred_call_time'],
+        );
+        return _buildConsultationPrimarySecondary(
+          primary: phone,
+          secondary: preferredCallTime == dashValue ? null : preferredCallTime,
+        );
+      case 'service':
+        return _buildConsultationPrimarySecondary(
+          primary: _displayValue(item.values['service_type']),
+        );
+      case 'car_model':
+        return _buildConsultationPrimarySecondary(
+          primary: _displayValue(item.values['car_model']),
+        );
+      case 'call_time':
+        return _buildConsultationPrimarySecondary(
+          primary: _displayValue(item.values['preferred_call_time']),
+        );
+      case 'comments':
+        return Text(
+          _displayValue(item.values['comments']),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: subtleTextColor,
+            height: 1.35,
+          ),
+        );
+      default:
+        return Text(
+          dashValue,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: subtleTextColor),
+        );
+    }
+  }
+
+  Widget _buildConsultationPrimarySecondary({
+    required String primary,
+    String? secondary,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = isDark ? AppColors.white90 : const Color(0xFF334155);
+    final secondaryColor = isDark ? AppColors.white60 : const Color(0xFF94A3B8);
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          primary,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: primaryColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (secondary != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            secondary,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(color: secondaryColor),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _formatConsultationTableDate(dynamic value) {
+    final parsed = _parseConsultationDate(value);
+    if (parsed == null) {
+      return dashValue;
+    }
+    return DateFormat('dd.MM, HH:mm').format(parsed.toLocal());
+  }
+
+  DateTime? _parseConsultationDate(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return DateTime.tryParse(value.toString());
+  }
+
+  Object? _consultationSortValue(AdminEntityItem item, String key) {
+    switch (key) {
+      case 'id':
+        return int.tryParse(item.id.toString()) ?? item.id.toString();
+      case 'date':
+        return _parseConsultationDate(item.values['created_at']);
+      case 'client':
+        final firstName = _displayValue(item.values['first_name']);
+        final lastName = _displayValue(item.values['last_name']);
+        return '$firstName $lastName'.trim().toLowerCase();
+      case 'phone':
+        return _displayValue(item.values['phone']).toLowerCase();
+      case 'service':
+        return _displayValue(item.values['service_type']).toLowerCase();
+      case 'car_model':
+        return _displayValue(item.values['car_model']).toLowerCase();
+      case 'call_time':
+        return _displayValue(item.values['preferred_call_time']).toLowerCase();
+      case 'comments':
+        return _displayValue(item.values['comments']).toLowerCase();
+      default:
+        return null;
+    }
+  }
+
+  int _consultationSortColumnIndex(
+    List<_ConsultationColumnConfig> visibleColumns,
+  ) {
+    if (_consultationsSortKey == 'id') {
+      return 0;
+    }
+    final visibleIndex = visibleColumns.indexWhere(
+      (column) => column.key == _consultationsSortKey,
+    );
+    if (visibleIndex == -1) {
+      return 0;
+    }
+    return visibleIndex + 1;
+  }
+
+  void _setConsultationsSort({required String key, required bool ascending}) {
+    setState(() {
+      _consultationsUseRandomOrder = false;
+      _consultationsSortKey = key;
+      _consultationsSortAscending = ascending;
+    });
+  }
+
+  void _toggleConsultationsColumn(String key) {
+    setState(() {
+      if (_consultationsVisibleColumns.contains(key)) {
+        if (_consultationsVisibleColumns.length == 1) {
+          _showMessage('Должна остаться хотя бы одна колонка');
+          return;
+        }
+        _consultationsVisibleColumns.remove(key);
+      } else {
+        _consultationsVisibleColumns.add(key);
+      }
+    });
+  }
+
+  int _compareDynamicValues(Object? left, Object? right) {
+    if (left == null && right == null) {
+      return 0;
+    }
+    if (left == null) {
+      return 1;
+    }
+    if (right == null) {
+      return -1;
+    }
+    if (left is num && right is num) {
+      return left.compareTo(right);
+    }
+    if (left is DateTime && right is DateTime) {
+      return left.compareTo(right);
+    }
+    return left.toString().compareTo(right.toString());
   }
 
   Widget _buildPrivacySectionsList({
@@ -3704,6 +4213,33 @@ class _PartnerLogoPreview extends StatelessWidget {
       ),
     );
   }
+}
+
+const List<_ConsultationColumnConfig>
+_consultationColumnConfigs = <_ConsultationColumnConfig>[
+  _ConsultationColumnConfig(key: 'date', label: 'Дата', width: 150),
+  _ConsultationColumnConfig(key: 'client', label: 'Клиент', width: 220),
+  _ConsultationColumnConfig(key: 'phone', label: 'Телефон', width: 180),
+  _ConsultationColumnConfig(key: 'service', label: 'Услуга', width: 200),
+  _ConsultationColumnConfig(key: 'car_model', label: 'Модель авто', width: 180),
+  _ConsultationColumnConfig(
+    key: 'call_time',
+    label: 'Время звонка',
+    width: 180,
+  ),
+  _ConsultationColumnConfig(key: 'comments', label: 'Комментарий', width: 260),
+];
+
+class _ConsultationColumnConfig {
+  const _ConsultationColumnConfig({
+    required this.key,
+    required this.label,
+    required this.width,
+  });
+
+  final String key;
+  final String label;
+  final double width;
 }
 
 class _EntityFormDialog extends ConsumerStatefulWidget {
