@@ -281,8 +281,10 @@ class AdminRepository {
 
     final attempts = <Future<void> Function()>[
       () => _client.put('${entity.endpoint}/$resolvedId', data: payloadWithId),
-      () => _client.patch('${entity.endpoint}/$resolvedId', data: payloadWithId),
-      () => _client.put('${entity.endpoint}/$resolvedId', data: payloadWithoutId),
+      () =>
+          _client.patch('${entity.endpoint}/$resolvedId', data: payloadWithId),
+      () =>
+          _client.put('${entity.endpoint}/$resolvedId', data: payloadWithoutId),
       () => _client.patch(
         '${entity.endpoint}/$resolvedId',
         data: payloadWithoutId,

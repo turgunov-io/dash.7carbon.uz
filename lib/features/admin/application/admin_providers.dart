@@ -411,10 +411,7 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
     return prepared;
   }
 
-  String _buildAboutSectionKey(
-    dynamic title, {
-    required int fallbackSuffix,
-  }) {
+  String _buildAboutSectionKey(dynamic title, {required int fallbackSuffix}) {
     final source = title?.toString().trim().toLowerCase() ?? '';
     var normalized = source.replaceAll(RegExp(r'[\s/\\|,.;:]+'), '_');
     normalized = normalized.replaceAll(
