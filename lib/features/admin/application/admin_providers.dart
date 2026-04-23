@@ -570,15 +570,9 @@ class AdminEntityController extends StateNotifier<AdminEntityState> {
       payload['description'] = title.toString().trim();
     }
     if (price != null) {
-      var priceText = price.toString().trim();
-      // Remove currency symbols/spaces and normalize decimal separator.
-      priceText = priceText.replaceAll(RegExp(r'[^0-9,.-]'), '');
-      if (priceText.contains(',') && !priceText.contains('.')) {
-        priceText = priceText.replaceAll(',', '.');
-      }
-      // Remove thousand separators like "6,059.63" => "6059.63".
-      priceText = priceText.replaceAll(RegExp(r'(?<=\d),(?=\d{3}\b)'), '');
-      payload['price'] = priceText;
+      // Price is displayed as free-form text in tuning cards.
+      // Preserve the user's currency symbol and decimal separator.
+      payload['price'] = price.toString().trim();
     }
     if (cardDescription != null) {
       payload['card_description'] = cardDescription.toString().trim();
